@@ -7,8 +7,6 @@ using MemoryPack;
 #pragma warning disable CS8601
 #pragma warning disable CS8603
 
-// ReSharper disable ALL
-
 namespace Erinn
 {
     /// <summary>
@@ -16,40 +14,14 @@ namespace Erinn
     /// </summary>
     [StructLayout(LayoutKind.Sequential)]
     [NativeCollection]
-    public readonly unsafe struct NativeStream : IDisposable, IEquatable<NativeStream>, IBufferWriter<byte>
+    public unsafe struct NativeStream : IEquatable<NativeStream>, IBufferWriter<byte>
     {
-        /// <summary>
-        ///     Handle
-        /// </summary>
-        [StructLayout(LayoutKind.Sequential)]
-        private struct NativeStreamHandle
-        {
-            /// <summary>
-            ///     Buffer
-            /// </summary>
-            public NativeSlice<byte> Buffer;
-
-            /// <summary>
-            ///     Bytes read
-            /// </summary>
-            public int BytesRead;
-
-            /// <summary>
-            ///     Bytes written
-            /// </summary>
-            public int BytesWritten;
-        }
-
-        /// <summary>
-        ///     Handle
-        /// </summary>
-        private readonly NativeStreamHandle* _handle;
-
         /// <summary>
         ///     Structure
         /// </summary>
+        /// <param name="handle">Handle</param>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public NativeStream() => _handle = (NativeStreamHandle*)NativeMemoryAllocator.AllocZeroed((uint)sizeof(NativeStreamHandle));
+        public NativeStream(byte* handle) => _handle = handle;
 
         /// <summary>
         ///     Equals
@@ -94,12 +66,6 @@ namespace Erinn
         public static bool operator !=(NativeStream left, NativeStream right) => left._handle != right._handle;
 
         /// <summary>
-        ///     Dispose
-        /// </summary>
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public void Dispose() => NativeMemoryAllocator.Free(_handle);
-
-        /// <summary>
         ///     Advance
         /// </summary>
         /// <param name="count">Count</param>
@@ -129,7 +95,7 @@ namespace Erinn
         /// <param name="sizeHint">Size hint</param>
         /// <returns>Span</returns>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public Span<byte> GetSpan(int sizeHint = 0) => _handle->Buffer.AsSpan(BytesWritten, sizeHint);
+        public Span<byte> GetSpan(int sizeHint = 0) => Buffer.AsSpan(BytesWritten, sizeHint);
 
         /// <summary>
         ///     Is created
@@ -142,14 +108,24 @@ namespace Erinn
         public bool IsEmpty => BytesWritten <= BytesRead;
 
         /// <summary>
+        ///     Buffer
+        /// </summary>
+        public NativeSlice<byte> Buffer { get; private set; }
+
+        /// <summary>
+        ///     Handle
+        /// </summary>
+        private byte* _handle;
+
+        /// <summary>
         ///     Bytes read
         /// </summary>
         public int BytesRead
         {
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
-            get => _handle->BytesRead;
+            get => Unsafe.ReadUnaligned<int>(_handle);
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
-            private set => _handle->BytesRead = value;
+            private set => Unsafe.WriteUnaligned(_handle, value);
         }
 
         /// <summary>
@@ -158,9 +134,9 @@ namespace Erinn
         public int BytesWritten
         {
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
-            get => _handle->BytesWritten;
+            get => Unsafe.ReadUnaligned<int>(_handle + sizeof(int));
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
-            private set => _handle->BytesWritten = value;
+            private set => Unsafe.WriteUnaligned(_handle + sizeof(int), value);
         }
 
         /// <summary>
@@ -178,7 +154,7 @@ namespace Erinn
         public int BytesCanWrite
         {
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
-            get => _handle->Buffer.Count - BytesWritten;
+            get => Buffer.Count - BytesWritten;
         }
 
         /// <summary>
@@ -196,7 +172,7 @@ namespace Erinn
         /// </summary>
         /// <param name="buffer">Buffer</param>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public void SetBuffer(NativeSlice<byte> buffer) => _handle->Buffer = buffer;
+        public void SetBuffer(NativeSlice<byte> buffer) => Buffer = buffer;
 
         /// <summary>
         ///     Read
@@ -209,7 +185,7 @@ namespace Erinn
             if (BytesCanRead <= 0)
                 MemoryPackSerializationException.ThrowSequenceReachedEnd();
             var obj = default(T);
-            BytesRead += MemoryPackSerializer.Deserialize(_handle->Buffer.AsSpan(BytesRead), ref obj);
+            BytesRead += MemoryPackSerializer.Deserialize(Buffer.AsReadOnlySpan(BytesRead), ref obj);
             return obj;
         }
 
@@ -223,7 +199,7 @@ namespace Erinn
         {
             if (BytesCanRead <= 0)
                 MemoryPackSerializationException.ThrowSequenceReachedEnd();
-            BytesRead += MemoryPackSerializer.Deserialize(_handle->Buffer.AsSpan(BytesRead), ref obj);
+            BytesRead += MemoryPackSerializer.Deserialize(Buffer.AsReadOnlySpan(BytesRead), ref obj);
         }
 
         /// <summary>
@@ -237,7 +213,7 @@ namespace Erinn
             var bytesCanRead = BytesCanRead;
             if (length > bytesCanRead)
                 throw new ArgumentOutOfRangeException(nameof(length), $"Requires size is {length}, but buffer length is {bytesCanRead}.");
-            Unsafe.CopyBlockUnaligned(buffer, _handle->Buffer.Array + _handle->Buffer.Offset + BytesRead, (uint)length);
+            Unsafe.CopyBlockUnaligned(buffer, Buffer.Array + Buffer.Offset + BytesRead, (uint)length);
             BytesRead += length;
         }
 
@@ -260,7 +236,7 @@ namespace Erinn
             var bytesCanWrite = BytesCanWrite;
             if (length > bytesCanWrite)
                 throw new ArgumentOutOfRangeException(nameof(length), $"Requires size is {length}, but buffer length is {bytesCanWrite}.");
-            Unsafe.CopyBlockUnaligned(_handle->Buffer.Array + _handle->Buffer.Offset + BytesWritten, buffer, (uint)length);
+            Unsafe.CopyBlockUnaligned(Buffer.Array + Buffer.Offset + BytesWritten, buffer, (uint)length);
             BytesWritten += length;
         }
 
@@ -269,6 +245,19 @@ namespace Erinn
         /// </summary>
         /// <returns>Span</returns>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public Span<byte> AsSpan() => _handle->Buffer.AsSpan(0, _handle->BytesWritten);
+        public Span<byte> AsSpan() => Buffer.AsSpan(0, BytesWritten);
+
+        /// <summary>
+        ///     As native stream
+        /// </summary>
+        /// <param name="span">Span</param>
+        /// <returns>NativeStream</returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static implicit operator NativeStream(Span<byte> span)
+        {
+            if (span.Length < 8)
+                throw new ArgumentOutOfRangeException(nameof(span), $"Requires size is 8, but buffer length is {span.Length}.");
+            return new NativeStream((byte*)Unsafe.AsPointer(ref MemoryMarshal.GetReference(span)));
+        }
     }
 }
