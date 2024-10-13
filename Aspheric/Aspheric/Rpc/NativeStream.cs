@@ -17,11 +17,33 @@ namespace Erinn
     public unsafe struct NativeStream : IEquatable<NativeStream>, IBufferWriter<byte>
     {
         /// <summary>
+        ///     Handle
+        /// </summary>
+        [StructLayout(LayoutKind.Explicit, Size = 8)]
+        private struct NativeStreamHandle
+        {
+            /// <summary>
+            ///     Bytes read
+            /// </summary>
+            [FieldOffset(0)] public int BytesRead;
+
+            /// <summary>
+            ///     Bytes written
+            /// </summary>
+            [FieldOffset(4)] public int BytesWritten;
+        }
+
+        /// <summary>
+        ///     Handle
+        /// </summary>
+        private readonly NativeStreamHandle* _handle;
+
+        /// <summary>
         ///     Structure
         /// </summary>
         /// <param name="handle">Handle</param>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public NativeStream(byte* handle) => _handle = handle;
+        public NativeStream(byte* handle) => _handle = (NativeStreamHandle*)handle;
 
         /// <summary>
         ///     Equals
@@ -113,19 +135,14 @@ namespace Erinn
         public NativeSlice<byte> Buffer { get; private set; }
 
         /// <summary>
-        ///     Handle
-        /// </summary>
-        private byte* _handle;
-
-        /// <summary>
         ///     Bytes read
         /// </summary>
         public int BytesRead
         {
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
-            get => Unsafe.ReadUnaligned<int>(_handle);
+            get => _handle->BytesRead;
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
-            private set => Unsafe.WriteUnaligned(_handle, value);
+            private set => _handle->BytesRead = value;
         }
 
         /// <summary>
@@ -134,9 +151,9 @@ namespace Erinn
         public int BytesWritten
         {
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
-            get => Unsafe.ReadUnaligned<int>(_handle + sizeof(int));
+            get => _handle->BytesWritten;
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
-            private set => Unsafe.WriteUnaligned(_handle + sizeof(int), value);
+            private set => _handle->BytesWritten = value;
         }
 
         /// <summary>
