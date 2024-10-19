@@ -312,7 +312,7 @@ namespace Erinn
             ENetAddress address;
             _ = enet_set_ip(&address, Socket.OSSupportsIPv6 ? "::0" : "0.0.0.0");
             address.port = port;
-            var host = enet_host_create(&address, peerCount, 0, incomingBandwidth, outgoingBandwidth);
+            var host = enet_host_create(&address, peerCount, 2, incomingBandwidth, outgoingBandwidth);
             if (host == null)
             {
                 enet_deinitialize();
