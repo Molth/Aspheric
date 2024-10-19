@@ -577,6 +577,7 @@ namespace Erinn
         /// </summary>
         /// <param name="ip">IP</param>
         /// <param name="port">Port</param>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void Ping(string ip, ushort port)
         {
             ENetAddress address;
@@ -589,6 +590,7 @@ namespace Erinn
         ///     Ping
         /// </summary>
         /// <param name="address">Address</param>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void Ping(in ENetAddress address)
         {
             _handle->Commands.Enqueue(new NetworkCommand
