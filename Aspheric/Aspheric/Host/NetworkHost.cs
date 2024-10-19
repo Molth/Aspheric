@@ -459,8 +459,8 @@ namespace Erinn
         {
             var handle = _handle;
             var incomings = (NativeConcurrentQueue<NetworkEvent>)obj;
-            var buffer = stackalloc byte[8];
-            var stream = new DataStream(buffer, 8);
+            var buffer = stackalloc byte[24];
+            var stream = new DataStream(buffer, 24);
             var spinCount = 0;
             while (handle->State == 1)
             {
@@ -700,11 +700,11 @@ namespace Erinn
                 return false;
             if (!handle->RpcMethods.TryGetCommand((nint)address, out var command))
                 return false;
-            var buffer = stackalloc byte[1400];
-            var stream = new DataStream(buffer, 1400);
+            var buffer = stackalloc byte[1416];
+            var stream = new DataStream(buffer, 1416);
             stream.Write(command);
             stream.Write(arg0);
-            var data = buffer + 8;
+            var data = buffer + 24;
             var packet = enet_packet_create(data, stream.BytesWritten, (uint)flags);
             handle->Outgoings.Enqueue(new NetworkPacket(session, packet));
             return true;
@@ -722,12 +722,12 @@ namespace Erinn
                 return false;
             if (!handle->RpcMethods.TryGetCommand((nint)address, out var command))
                 return false;
-            var buffer = stackalloc byte[1400];
-            var stream = new DataStream(buffer, 1400);
+            var buffer = stackalloc byte[1416];
+            var stream = new DataStream(buffer, 1416);
             stream.Write(command);
             stream.Write(arg0);
             stream.Write(arg1);
-            var data = buffer + 8;
+            var data = buffer + 24;
             var packet = enet_packet_create(data, stream.BytesWritten, (uint)flags);
             handle->Outgoings.Enqueue(new NetworkPacket(session, packet));
             return true;
@@ -745,13 +745,13 @@ namespace Erinn
                 return false;
             if (!handle->RpcMethods.TryGetCommand((nint)address, out var command))
                 return false;
-            var buffer = stackalloc byte[1400];
-            var stream = new DataStream(buffer, 1400);
+            var buffer = stackalloc byte[1416];
+            var stream = new DataStream(buffer, 1416);
             stream.Write(command);
             stream.Write(arg0);
             stream.Write(arg1);
             stream.Write(arg2);
-            var data = buffer + 8;
+            var data = buffer + 24;
             var packet = enet_packet_create(data, stream.BytesWritten, (uint)flags);
             handle->Outgoings.Enqueue(new NetworkPacket(session, packet));
             return true;
@@ -769,14 +769,14 @@ namespace Erinn
                 return false;
             if (!handle->RpcMethods.TryGetCommand((nint)address, out var command))
                 return false;
-            var buffer = stackalloc byte[1400];
-            var stream = new DataStream(buffer, 1400);
+            var buffer = stackalloc byte[1416];
+            var stream = new DataStream(buffer, 1416);
             stream.Write(command);
             stream.Write(arg0);
             stream.Write(arg1);
             stream.Write(arg2);
             stream.Write(arg3);
-            var data = buffer + 8;
+            var data = buffer + 24;
             var packet = enet_packet_create(data, stream.BytesWritten, (uint)flags);
             handle->Outgoings.Enqueue(new NetworkPacket(session, packet));
             return true;
@@ -794,15 +794,15 @@ namespace Erinn
                 return false;
             if (!handle->RpcMethods.TryGetCommand((nint)address, out var command))
                 return false;
-            var buffer = stackalloc byte[1400];
-            var stream = new DataStream(buffer, 1400);
+            var buffer = stackalloc byte[1416];
+            var stream = new DataStream(buffer, 1416);
             stream.Write(command);
             stream.Write(arg0);
             stream.Write(arg1);
             stream.Write(arg2);
             stream.Write(arg3);
             stream.Write(arg4);
-            var data = buffer + 8;
+            var data = buffer + 24;
             var packet = enet_packet_create(data, stream.BytesWritten, (uint)flags);
             handle->Outgoings.Enqueue(new NetworkPacket(session, packet));
             return true;
@@ -820,8 +820,8 @@ namespace Erinn
                 return false;
             if (!handle->RpcMethods.TryGetCommand((nint)address, out var command))
                 return false;
-            var buffer = stackalloc byte[1400];
-            var stream = new DataStream(buffer, 1400);
+            var buffer = stackalloc byte[1416];
+            var stream = new DataStream(buffer, 1416);
             stream.Write(command);
             stream.Write(arg0);
             stream.Write(arg1);
@@ -829,7 +829,7 @@ namespace Erinn
             stream.Write(arg3);
             stream.Write(arg4);
             stream.Write(arg5);
-            var data = buffer + 8;
+            var data = buffer + 24;
             var packet = enet_packet_create(data, stream.BytesWritten, (uint)flags);
             handle->Outgoings.Enqueue(new NetworkPacket(session, packet));
             return true;
@@ -847,8 +847,8 @@ namespace Erinn
                 return false;
             if (!handle->RpcMethods.TryGetCommand((nint)address, out var command))
                 return false;
-            var buffer = stackalloc byte[1400];
-            var stream = new DataStream(buffer, 1400);
+            var buffer = stackalloc byte[1416];
+            var stream = new DataStream(buffer, 1416);
             stream.Write(command);
             stream.Write(arg0);
             stream.Write(arg1);
@@ -857,7 +857,7 @@ namespace Erinn
             stream.Write(arg4);
             stream.Write(arg5);
             stream.Write(arg6);
-            var data = buffer + 8;
+            var data = buffer + 24;
             var packet = enet_packet_create(data, stream.BytesWritten, (uint)flags);
             handle->Outgoings.Enqueue(new NetworkPacket(session, packet));
             return true;
@@ -875,8 +875,8 @@ namespace Erinn
                 return false;
             if (!handle->RpcMethods.TryGetCommand((nint)address, out var command))
                 return false;
-            var buffer = stackalloc byte[1400];
-            var stream = new DataStream(buffer, 1400);
+            var buffer = stackalloc byte[1416];
+            var stream = new DataStream(buffer, 1416);
             stream.Write(command);
             stream.Write(arg0);
             stream.Write(arg1);
@@ -886,7 +886,7 @@ namespace Erinn
             stream.Write(arg5);
             stream.Write(arg6);
             stream.Write(arg7);
-            var data = buffer + 8;
+            var data = buffer + 24;
             var packet = enet_packet_create(data, stream.BytesWritten, (uint)flags);
             handle->Outgoings.Enqueue(new NetworkPacket(session, packet));
             return true;
@@ -904,8 +904,8 @@ namespace Erinn
                 return false;
             if (!handle->RpcMethods.TryGetCommand((nint)address, out var command))
                 return false;
-            var buffer = stackalloc byte[1400];
-            var stream = new DataStream(buffer, 1400);
+            var buffer = stackalloc byte[1416];
+            var stream = new DataStream(buffer, 1416);
             stream.Write(command);
             stream.Write(arg0);
             stream.Write(arg1);
@@ -916,7 +916,7 @@ namespace Erinn
             stream.Write(arg6);
             stream.Write(arg7);
             stream.Write(arg8);
-            var data = buffer + 8;
+            var data = buffer + 24;
             var packet = enet_packet_create(data, stream.BytesWritten, (uint)flags);
             handle->Outgoings.Enqueue(new NetworkPacket(session, packet));
             return true;
@@ -934,8 +934,8 @@ namespace Erinn
                 return false;
             if (!handle->RpcMethods.TryGetCommand((nint)address, out var command))
                 return false;
-            var buffer = stackalloc byte[1400];
-            var stream = new DataStream(buffer, 1400);
+            var buffer = stackalloc byte[1416];
+            var stream = new DataStream(buffer, 1416);
             stream.Write(command);
             stream.Write(arg0);
             stream.Write(arg1);
@@ -947,7 +947,7 @@ namespace Erinn
             stream.Write(arg7);
             stream.Write(arg8);
             stream.Write(arg9);
-            var data = buffer + 8;
+            var data = buffer + 24;
             var packet = enet_packet_create(data, stream.BytesWritten, (uint)flags);
             handle->Outgoings.Enqueue(new NetworkPacket(session, packet));
             return true;
@@ -965,8 +965,8 @@ namespace Erinn
                 return false;
             if (!handle->RpcMethods.TryGetCommand((nint)address, out var command))
                 return false;
-            var buffer = stackalloc byte[1400];
-            var stream = new DataStream(buffer, 1400);
+            var buffer = stackalloc byte[1416];
+            var stream = new DataStream(buffer, 1416);
             stream.Write(command);
             stream.Write(arg0);
             stream.Write(arg1);
@@ -979,7 +979,7 @@ namespace Erinn
             stream.Write(arg8);
             stream.Write(arg9);
             stream.Write(arg10);
-            var data = buffer + 8;
+            var data = buffer + 24;
             var packet = enet_packet_create(data, stream.BytesWritten, (uint)flags);
             handle->Outgoings.Enqueue(new NetworkPacket(session, packet));
             return true;
@@ -997,8 +997,8 @@ namespace Erinn
                 return false;
             if (!handle->RpcMethods.TryGetCommand((nint)address, out var command))
                 return false;
-            var buffer = stackalloc byte[1400];
-            var stream = new DataStream(buffer, 1400);
+            var buffer = stackalloc byte[1416];
+            var stream = new DataStream(buffer, 1416);
             stream.Write(command);
             stream.Write(arg0);
             stream.Write(arg1);
@@ -1012,7 +1012,7 @@ namespace Erinn
             stream.Write(arg9);
             stream.Write(arg10);
             stream.Write(arg11);
-            var data = buffer + 8;
+            var data = buffer + 24;
             var packet = enet_packet_create(data, stream.BytesWritten, (uint)flags);
             handle->Outgoings.Enqueue(new NetworkPacket(session, packet));
             return true;
@@ -1030,8 +1030,8 @@ namespace Erinn
                 return false;
             if (!handle->RpcMethods.TryGetCommand((nint)address, out var command))
                 return false;
-            var buffer = stackalloc byte[1400];
-            var stream = new DataStream(buffer, 1400);
+            var buffer = stackalloc byte[1416];
+            var stream = new DataStream(buffer, 1416);
             stream.Write(command);
             stream.Write(arg0);
             stream.Write(arg1);
@@ -1046,7 +1046,7 @@ namespace Erinn
             stream.Write(arg10);
             stream.Write(arg11);
             stream.Write(arg12);
-            var data = buffer + 8;
+            var data = buffer + 24;
             var packet = enet_packet_create(data, stream.BytesWritten, (uint)flags);
             handle->Outgoings.Enqueue(new NetworkPacket(session, packet));
             return true;
@@ -1064,8 +1064,8 @@ namespace Erinn
                 return false;
             if (!handle->RpcMethods.TryGetCommand((nint)address, out var command))
                 return false;
-            var buffer = stackalloc byte[1400];
-            var stream = new DataStream(buffer, 1400);
+            var buffer = stackalloc byte[1416];
+            var stream = new DataStream(buffer, 1416);
             stream.Write(command);
             stream.Write(arg0);
             stream.Write(arg1);
@@ -1081,7 +1081,7 @@ namespace Erinn
             stream.Write(arg11);
             stream.Write(arg12);
             stream.Write(arg13);
-            var data = buffer + 8;
+            var data = buffer + 24;
             var packet = enet_packet_create(data, stream.BytesWritten, (uint)flags);
             handle->Outgoings.Enqueue(new NetworkPacket(session, packet));
             return true;
@@ -1099,8 +1099,8 @@ namespace Erinn
                 return false;
             if (!handle->RpcMethods.TryGetCommand((nint)address, out var command))
                 return false;
-            var buffer = stackalloc byte[1400];
-            var stream = new DataStream(buffer, 1400);
+            var buffer = stackalloc byte[1416];
+            var stream = new DataStream(buffer, 1416);
             stream.Write(command);
             stream.Write(arg0);
             stream.Write(arg1);
@@ -1117,7 +1117,7 @@ namespace Erinn
             stream.Write(arg12);
             stream.Write(arg13);
             stream.Write(arg14);
-            var data = buffer + 8;
+            var data = buffer + 24;
             var packet = enet_packet_create(data, stream.BytesWritten, (uint)flags);
             handle->Outgoings.Enqueue(new NetworkPacket(session, packet));
             return true;
@@ -1135,8 +1135,8 @@ namespace Erinn
                 return false;
             if (!handle->RpcMethods.TryGetCommand((nint)address, out var command))
                 return false;
-            var buffer = stackalloc byte[1400];
-            var stream = new DataStream(buffer, 1400);
+            var buffer = stackalloc byte[1416];
+            var stream = new DataStream(buffer, 1416);
             stream.Write(command);
             stream.Write(arg0);
             stream.Write(arg1);
@@ -1154,7 +1154,7 @@ namespace Erinn
             stream.Write(arg13);
             stream.Write(arg14);
             stream.Write(arg15);
-            var data = buffer + 8;
+            var data = buffer + 24;
             var packet = enet_packet_create(data, stream.BytesWritten, (uint)flags);
             handle->Outgoings.Enqueue(new NetworkPacket(session, packet));
             return true;

@@ -2,24 +2,9 @@
 using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading;
-using enet;
 
 namespace Erinn
 {
-    [StructLayout(LayoutKind.Explicit)]
-    public unsafe struct Sb
-    {
-        [FieldOffset(0)] public ENetAddress Address;
-        [FieldOffset(0)] public ENetPacket* Payload;
-    }
-
-    public unsafe struct NativeMemorySequenceHeader
-    {
-        public ushort SequenceNumber;
-        public ushort Length;
-        public NativeMemorySequenceHeader* Sequence;
-    }
-
     public sealed unsafe class Program
     {
         private static NetworkPeer _peer;
@@ -70,8 +55,8 @@ namespace Erinn
 
             var i = 0;
             var j = 0;
-            DataStream stream = stackalloc byte[1400];
-            var buffer = stackalloc byte[1400];
+            DataStream stream = stackalloc byte[1416];
+            var buffer = stackalloc byte[1416];
             while (true)
             {
                 Thread.Sleep(1000);
@@ -99,7 +84,7 @@ namespace Erinn
 
                     if (_isConnected2)
                     {
-                        var length = Encoding.UTF8.GetBytes($"4. this is raw test. {i++}", MemoryMarshal.CreateSpan(ref *buffer, 1400));
+                        var length = Encoding.UTF8.GetBytes($"4. this is raw test. {i++}", MemoryMarshal.CreateSpan(ref *buffer, 1416));
                         stream.WriteBytes(buffer, length);
                         client2.Send(_peer2, NetworkPacketFlag.Reliable, stream);
                         stream.Flush();
