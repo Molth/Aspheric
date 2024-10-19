@@ -2,15 +2,25 @@
 
     <PropertyGroup>
         <TargetFramework>net8.0</TargetFramework>
+        <RootNamespace>enet</RootNamespace>
         <ImplicitUsings>disable</ImplicitUsings>
         <Nullable>enable</Nullable>
         <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     </PropertyGroup>
 
     <ItemGroup>
-      <None Update="Plugins\Nanosockets\Windows\nanosockets.dll">
-        <CopyToOutputDirectory>Never</CopyToOutputDirectory>
-      </None>
+        <None Update="Plugins\Nanosockets\Windows\nanosockets.dll">
+            <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+            <Link>nanosockets.dll</Link>
+        </None>
+        <None Update="Plugins\Nanosockets\Linux\libnanosockets.so">
+            <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+            <Link>libnanosockets.so</Link>
+        </None>
+        <None Update="Plugins\Nanosockets\macOS\libnanosockets.dylib">
+            <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+            <Link>libnanosockets.dylib</Link>
+        </None>
     </ItemGroup>
 
 </Project>

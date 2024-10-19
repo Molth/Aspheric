@@ -53,12 +53,14 @@ namespace enet
         ENET_PROTOCOL_HEADER_SESSION_SHIFT = 12
     }
 
+    [StructLayout(LayoutKind.Sequential)]
     public struct ENetProtocolHeader
     {
         public enet_uint16 peerID;
         public enet_uint16 sentTime;
     }
 
+    [StructLayout(LayoutKind.Sequential)]
     public struct ENetProtocolCommandHeader
     {
         public enet_uint8 command;
@@ -66,6 +68,7 @@ namespace enet
         public enet_uint16 reliableSequenceNumber;
     }
 
+    [StructLayout(LayoutKind.Sequential)]
     public struct ENetProtocolAcknowledge
     {
         public ENetProtocolCommandHeader header;
@@ -73,6 +76,7 @@ namespace enet
         public enet_uint16 receivedSentTime;
     }
 
+    [StructLayout(LayoutKind.Sequential)]
     public struct ENetProtocolConnect
     {
         public ENetProtocolCommandHeader header;
@@ -91,6 +95,7 @@ namespace enet
         public enet_uint32 data;
     }
 
+    [StructLayout(LayoutKind.Sequential)]
     public struct ENetProtocolVerifyConnect
     {
         public ENetProtocolCommandHeader header;
@@ -108,6 +113,7 @@ namespace enet
         public enet_uint32 connectID;
     }
 
+    [StructLayout(LayoutKind.Sequential)]
     public struct ENetProtocolBandwidthLimit
     {
         public ENetProtocolCommandHeader header;
@@ -115,6 +121,7 @@ namespace enet
         public enet_uint32 outgoingBandwidth;
     }
 
+    [StructLayout(LayoutKind.Sequential)]
     public struct ENetProtocolThrottleConfigure
     {
         public ENetProtocolCommandHeader header;
@@ -123,23 +130,27 @@ namespace enet
         public enet_uint32 packetThrottleDeceleration;
     }
 
+    [StructLayout(LayoutKind.Sequential)]
     public struct ENetProtocolDisconnect
     {
         public ENetProtocolCommandHeader header;
         public enet_uint32 data;
     }
 
+    [StructLayout(LayoutKind.Sequential)]
     public struct ENetProtocolPing
     {
         public ENetProtocolCommandHeader header;
     }
 
+    [StructLayout(LayoutKind.Sequential)]
     public struct ENetProtocolSendReliable
     {
         public ENetProtocolCommandHeader header;
         public enet_uint16 dataLength;
     }
 
+    [StructLayout(LayoutKind.Sequential)]
     public struct ENetProtocolSendUnreliable
     {
         public ENetProtocolCommandHeader header;
@@ -147,6 +158,7 @@ namespace enet
         public enet_uint16 dataLength;
     }
 
+    [StructLayout(LayoutKind.Sequential)]
     public struct ENetProtocolSendUnsequenced
     {
         public ENetProtocolCommandHeader header;
@@ -154,6 +166,7 @@ namespace enet
         public enet_uint16 dataLength;
     }
 
+    [StructLayout(LayoutKind.Sequential)]
     public struct ENetProtocolSendFragment
     {
         public ENetProtocolCommandHeader header;

@@ -101,13 +101,14 @@ namespace Erinn
             array += sizeof(NativeFixedSize64MemorySlab);
             for (byte i = 0; i < 64; ++i)
                 *(array + i * nodeSize) = i;
-            _handle = (NativeFixedSize64MemoryPoolHandle*)NativeMemoryAllocator.Alloc((uint)sizeof(NativeFixedSize64MemoryPoolHandle));
-            _handle->Sentinel = slab;
-            _handle->FreeList = null;
-            _handle->Slabs = 1;
-            _handle->FreeSlabs = 0;
-            _handle->MaxFreeSlabs = maxFreeSlabs;
-            _handle->Length = length;
+            var handle = (NativeFixedSize64MemoryPoolHandle*)NativeMemoryAllocator.Alloc((uint)sizeof(NativeFixedSize64MemoryPoolHandle));
+            handle->Sentinel = slab;
+            handle->FreeList = null;
+            handle->Slabs = 1;
+            handle->FreeSlabs = 0;
+            handle->MaxFreeSlabs = maxFreeSlabs;
+            handle->Length = length;
+            _handle = handle;
         }
 
         /// <summary>
@@ -153,7 +154,7 @@ namespace Erinn
         ///     Get hashCode
         /// </summary>
         /// <returns>HashCode</returns>
-        public override int GetHashCode() => (int)(nint)_handle;
+        public override int GetHashCode() => ((nint)_handle).GetHashCode();
 
         /// <summary>
         ///     To string
@@ -183,27 +184,28 @@ namespace Erinn
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void Dispose()
         {
-            if (_handle == null)
+            var handle = _handle;
+            if (handle == null)
                 return;
-            var node = _handle->Sentinel;
-            while (_handle->Slabs > 0)
+            var node = handle->Sentinel;
+            while (handle->Slabs > 0)
             {
-                _handle->Slabs--;
+                handle->Slabs--;
                 var temp = node;
                 node = node->Next;
                 NativeMemoryAllocator.Free(temp);
             }
 
-            node = _handle->FreeList;
-            while (_handle->FreeSlabs > 0)
+            node = handle->FreeList;
+            while (handle->FreeSlabs > 0)
             {
-                _handle->FreeSlabs--;
+                handle->FreeSlabs--;
                 var temp = node;
                 node = node->Next;
                 NativeMemoryAllocator.Free(temp);
             }
 
-            NativeMemoryAllocator.Free(_handle);
+            NativeMemoryAllocator.Free(handle);
         }
 
         /// <summary>
@@ -213,36 +215,37 @@ namespace Erinn
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void* Rent()
         {
-            var slab = _handle->Sentinel;
-            var nodeSize = 1 + _handle->Length;
+            var handle = _handle;
+            var slab = handle->Sentinel;
+            var nodeSize = 1 + handle->Length;
             if (slab->Bitmap == ulong.MaxValue)
             {
-                _handle->Sentinel = slab->Next;
-                slab = _handle->Sentinel;
+                handle->Sentinel = slab->Next;
+                slab = handle->Sentinel;
                 if (slab->Bitmap == ulong.MaxValue)
                 {
-                    if (_handle->FreeSlabs == 0)
+                    if (handle->FreeSlabs == 0)
                     {
                         var array = (byte*)NativeMemoryAllocator.Alloc((uint)(sizeof(NativeFixedSize64MemorySlab) + 64 * nodeSize));
                         slab = (NativeFixedSize64MemorySlab*)array;
-                        slab->Bitmap = 0UL;
                         array += sizeof(NativeFixedSize64MemorySlab);
                         for (byte i = 0; i < 64; ++i)
                             *(array + i * nodeSize) = i;
                     }
                     else
                     {
-                        slab = _handle->FreeList;
-                        _handle->FreeList = slab->Next;
-                        _handle->FreeSlabs--;
+                        slab = handle->FreeList;
+                        handle->FreeList = slab->Next;
+                        handle->FreeSlabs--;
                     }
 
-                    slab->Next = _handle->Sentinel;
-                    slab->Previous = _handle->Sentinel->Previous;
-                    _handle->Sentinel->Previous->Next = slab;
-                    _handle->Sentinel->Previous = slab;
-                    _handle->Sentinel = slab;
-                    _handle->Slabs++;
+                    slab->Next = handle->Sentinel;
+                    slab->Previous = handle->Sentinel->Previous;
+                    slab->Bitmap = 0UL;
+                    handle->Sentinel->Previous->Next = slab;
+                    handle->Sentinel->Previous = slab;
+                    handle->Sentinel = slab;
+                    handle->Slabs++;
                 }
             }
 
@@ -259,28 +262,29 @@ namespace Erinn
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void Return(void* ptr)
         {
+            var handle = _handle;
             var array = (byte*)ptr;
             var id = *(array - 1);
-            array -= sizeof(NativeFixedSize64MemorySlab) + id * (1 + _handle->Length) + 1;
+            array -= sizeof(NativeFixedSize64MemorySlab) + id * (1 + handle->Length) + 1;
             var slab = (NativeFixedSize64MemorySlab*)array;
             ref var segment = ref slab->Bitmap;
             segment &= ~(1UL << id);
-            if (segment == 0 && slab != _handle->Sentinel)
+            if (segment == 0 && slab != handle->Sentinel)
             {
                 slab->Previous->Next = slab->Next;
                 slab->Next->Previous = slab->Previous;
-                if (_handle->FreeSlabs == _handle->MaxFreeSlabs)
+                if (handle->FreeSlabs == handle->MaxFreeSlabs)
                 {
                     NativeMemoryAllocator.Free(slab);
                 }
                 else
                 {
-                    slab->Next = _handle->FreeList;
-                    _handle->FreeList = slab;
-                    _handle->FreeSlabs++;
+                    slab->Next = handle->FreeList;
+                    handle->FreeList = slab;
+                    handle->FreeSlabs++;
                 }
 
-                _handle->Slabs--;
+                handle->Slabs--;
             }
         }
 
@@ -294,23 +298,23 @@ namespace Erinn
         {
             if (capacity < 0)
                 throw new ArgumentOutOfRangeException(nameof(capacity), capacity, "MustBeNonNegative");
-            if (capacity > _handle->MaxFreeSlabs)
-                capacity = _handle->MaxFreeSlabs;
-            var nodeSize = 1 + _handle->Length;
-            while (_handle->FreeSlabs < capacity)
+            var handle = _handle;
+            if (capacity > handle->MaxFreeSlabs)
+                capacity = handle->MaxFreeSlabs;
+            var nodeSize = 1 + handle->Length;
+            while (handle->FreeSlabs < capacity)
             {
-                _handle->FreeSlabs++;
+                handle->FreeSlabs++;
                 var array = (byte*)NativeMemoryAllocator.Alloc((uint)(sizeof(NativeFixedSize64MemorySlab) + 64 * nodeSize));
                 var slab = (NativeFixedSize64MemorySlab*)array;
-                slab->Bitmap = 0UL;
                 array += sizeof(NativeFixedSize64MemorySlab);
                 for (byte i = 0; i < 64; ++i)
                     *(array + i * nodeSize) = i;
-                slab->Next = _handle->FreeList;
-                _handle->FreeList = slab;
+                slab->Next = handle->FreeList;
+                handle->FreeList = slab;
             }
 
-            return _handle->FreeSlabs;
+            return handle->FreeSlabs;
         }
 
         /// <summary>
@@ -319,16 +323,17 @@ namespace Erinn
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void TrimExcess()
         {
-            var node = _handle->FreeList;
-            while (_handle->FreeSlabs > 0)
+            var handle = _handle;
+            var node = handle->FreeList;
+            while (handle->FreeSlabs > 0)
             {
-                _handle->FreeSlabs--;
+                handle->FreeSlabs--;
                 var temp = node;
                 node = node->Next;
                 NativeMemoryAllocator.Free(temp);
             }
 
-            _handle->FreeList = node;
+            handle->FreeList = node;
         }
 
         /// <summary>
@@ -340,17 +345,18 @@ namespace Erinn
         {
             if (capacity < 0)
                 throw new ArgumentOutOfRangeException(nameof(capacity), capacity, "MustBeNonNegative");
-            var node = _handle->FreeList;
-            while (_handle->FreeSlabs > capacity)
+            var handle = _handle;
+            var node = handle->FreeList;
+            while (handle->FreeSlabs > capacity)
             {
-                _handle->FreeSlabs--;
+                handle->FreeSlabs--;
                 var temp = node;
                 node = node->Next;
                 NativeMemoryAllocator.Free(temp);
             }
 
-            _handle->FreeList = node;
-            return _handle->FreeSlabs;
+            handle->FreeList = node;
+            return handle->FreeSlabs;
         }
 
         /// <summary>

@@ -216,7 +216,7 @@ namespace Erinn
         ///     Get hashCode
         /// </summary>
         /// <returns>HashCode</returns>
-        public override int GetHashCode() => (int)(nint)_array;
+        public override int GetHashCode() => ((nint)_array).GetHashCode();
 
         /// <summary>
         ///     To string
@@ -246,9 +246,10 @@ namespace Erinn
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void Dispose()
         {
-            if (_array == null)
+            var array = _array;
+            if (array == null)
                 return;
-            NativeMemoryAllocator.Free(_array);
+            NativeMemoryAllocator.Free(array);
         }
 
         /// <summary>

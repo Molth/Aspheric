@@ -61,7 +61,7 @@ namespace Erinn
         ///     Get hashCode
         /// </summary>
         /// <returns>HashCode</returns>
-        public override int GetHashCode() => (int)(nint)_handle;
+        public override int GetHashCode() => ((nint)_handle).GetHashCode();
 
         /// <summary>
         ///     To string
@@ -91,9 +91,10 @@ namespace Erinn
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void Dispose()
         {
-            if (!_handle.IsAllocated)
+            var handle = _handle;
+            if (!handle.IsAllocated)
                 return;
-            _handle.Free();
+            handle.Free();
         }
 
         /// <summary>

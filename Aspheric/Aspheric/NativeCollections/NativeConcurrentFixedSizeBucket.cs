@@ -62,7 +62,14 @@ namespace Erinn
         /// <summary>
         ///     Is empty
         /// </summary>
-        public bool IsEmpty => (_buffer[0] - _buffer[1]) == _length;
+        public bool IsEmpty
+        {
+            get
+            {
+                var buffer = _buffer;
+                return buffer[0] - buffer[1] == _length;
+            }
+        }
 
         /// <summary>
         ///     Capacity
@@ -72,12 +79,26 @@ namespace Erinn
         /// <summary>
         ///     Count
         /// </summary>
-        public int Count => (_buffer[0] - _buffer[1]);
+        public int Count
+        {
+            get
+            {
+                var buffer = _buffer;
+                return buffer[0] - buffer[1];
+            }
+        }
 
         /// <summary>
         ///     Remaining
         /// </summary>
-        public int Remaining => _length - (_buffer[0] - _buffer[1]);
+        public int Remaining
+        {
+            get
+            {
+                var buffer = _buffer;
+                return _length - (buffer[0] - buffer[1]);
+            }
+        }
 
         /// <summary>
         ///     Equals
@@ -97,7 +118,7 @@ namespace Erinn
         ///     Get hashCode
         /// </summary>
         /// <returns>HashCode</returns>
-        public override int GetHashCode() => (int)(nint)_buffer;
+        public override int GetHashCode() => ((nint)_buffer).GetHashCode();
 
         /// <summary>
         ///     To string
@@ -127,9 +148,10 @@ namespace Erinn
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void Dispose()
         {
-            if (_buffer == null)
+            var buffer = _buffer;
+            if (buffer == null)
                 return;
-            NativeMemoryAllocator.Free(_buffer);
+            NativeMemoryAllocator.Free(buffer);
         }
 
         /// <summary>

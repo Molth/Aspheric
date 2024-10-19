@@ -100,7 +100,7 @@ namespace Erinn
         ///     Get hashCode
         /// </summary>
         /// <returns>HashCode</returns>
-        public override int GetHashCode() => HashCode.Combine((int)(nint)Unsafe.AsPointer(ref Array), Length, _position);
+        public override int GetHashCode() => HashCode.Combine((nint)Unsafe.AsPointer(ref Array), Length, _position);
 
         /// <summary>
         ///     To string
@@ -360,7 +360,7 @@ namespace Erinn
         /// <param name="start">Start</param>
         /// <returns>Span</returns>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public Span<byte> AsSpan(int start) => MemoryMarshal.CreateSpan(ref (Unsafe.AddByteOffset(ref Array, start)), Length - start);
+        public Span<byte> AsSpan(int start) => MemoryMarshal.CreateSpan(ref Unsafe.AddByteOffset(ref Array, start), Length - start);
 
         /// <summary>
         ///     As span
@@ -369,7 +369,7 @@ namespace Erinn
         /// <param name="length">Length</param>
         /// <returns>Span</returns>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public Span<byte> AsSpan(int start, int length) => MemoryMarshal.CreateSpan(ref (Unsafe.AddByteOffset(ref Array, start)), length);
+        public Span<byte> AsSpan(int start, int length) => MemoryMarshal.CreateSpan(ref Unsafe.AddByteOffset(ref Array, start), length);
 
         /// <summary>
         ///     As readOnly span
@@ -384,7 +384,7 @@ namespace Erinn
         /// <param name="start">Start</param>
         /// <returns>ReadOnlySpan</returns>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public ReadOnlySpan<byte> AsReadOnlySpan(int start) => MemoryMarshal.CreateReadOnlySpan(ref (Unsafe.AddByteOffset(ref Array, start)), Length - start);
+        public ReadOnlySpan<byte> AsReadOnlySpan(int start) => MemoryMarshal.CreateReadOnlySpan(ref Unsafe.AddByteOffset(ref Array, start), Length - start);
 
         /// <summary>
         ///     As readOnly span
@@ -393,7 +393,7 @@ namespace Erinn
         /// <param name="length">Length</param>
         /// <returns>ReadOnlySpan</returns>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public ReadOnlySpan<byte> AsReadOnlySpan(int start, int length) => MemoryMarshal.CreateReadOnlySpan(ref (Unsafe.AddByteOffset(ref Array, start)), length);
+        public ReadOnlySpan<byte> AsReadOnlySpan(int start, int length) => MemoryMarshal.CreateReadOnlySpan(ref Unsafe.AddByteOffset(ref Array, start), length);
 
         /// <summary>
         ///     As native reader

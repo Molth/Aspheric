@@ -17,11 +17,11 @@ namespace enet
         public const enet_uint32 ENET_VERSION_MAJOR = 1;
         public const enet_uint32 ENET_VERSION_MINOR = 3;
         public const enet_uint32 ENET_VERSION_PATCH = 18;
+        public static readonly enet_uint32 ENET_VERSION = ENET_VERSION_CREATE(ENET_VERSION_MAJOR, ENET_VERSION_MINOR, ENET_VERSION_PATCH);
         public static enet_uint32 ENET_VERSION_CREATE(enet_uint32 major, enet_uint32 minor, enet_uint32 patch) => (((major) << 16) | ((minor) << 8) | (patch));
         public static enet_uint32 ENET_VERSION_GET_MAJOR(enet_uint32 version) => (((version) >> 16) & 0xFF);
         public static enet_uint32 ENET_VERSION_GET_MINOR(enet_uint32 version) => (((version) >> 8) & 0xFF);
         public static enet_uint32 ENET_VERSION_GET_PATCH(enet_uint32 version) => ((version) & 0xFF);
-        public static readonly enet_uint32 ENET_VERSION = ENET_VERSION_CREATE(ENET_VERSION_MAJOR, ENET_VERSION_MINOR, ENET_VERSION_PATCH);
     }
 
     public enum ENetSocketType
@@ -114,6 +114,7 @@ namespace enet
         public static bool operator !=(ENetAddress left, ENetAddress right) => left.host != right.host || left.port != right.port;
     }
 
+    [Flags]
     public enum ENetPacketFlag
     {
         ENET_PACKET_FLAG_RELIABLE = (1 << 0),
@@ -123,6 +124,7 @@ namespace enet
         ENET_PACKET_FLAG_SENT = (1 << 8)
     }
 
+    [StructLayout(LayoutKind.Sequential)]
     public unsafe struct ENetPacket
     {
         public size_t referenceCount;
@@ -133,6 +135,7 @@ namespace enet
         public void* userData;
     }
 
+    [StructLayout(LayoutKind.Sequential)]
     public struct ENetAcknowledgement
     {
         public ENetListNode acknowledgementList;
@@ -140,6 +143,7 @@ namespace enet
         public ENetProtocol command;
     }
 
+    [StructLayout(LayoutKind.Sequential)]
     public unsafe struct ENetOutgoingCommand
     {
         public ENetListNode outgoingCommandList;
@@ -155,6 +159,7 @@ namespace enet
         public ENetPacket* packet;
     }
 
+    [StructLayout(LayoutKind.Sequential)]
     public unsafe struct ENetIncomingCommand
     {
         public ENetListNode incomingCommandList;
@@ -213,6 +218,7 @@ namespace enet
         public const enet_uint32 ENET_PEER_FREE_RELIABLE_WINDOWS = 8;
     }
 
+    [StructLayout(LayoutKind.Sequential)]
     public unsafe struct ENetChannel
     {
         public enet_uint16 outgoingReliableSequenceNumber;
@@ -231,6 +237,7 @@ namespace enet
         ENET_PEER_FLAG_CONTINUE_SENDING = (1 << 1)
     }
 
+    [StructLayout(LayoutKind.Sequential)]
     public unsafe struct ENetPeer
     {
         public ENetListNode dispatchList;
@@ -295,6 +302,7 @@ namespace enet
         public size_t totalWaitingData;
     }
 
+    [StructLayout(LayoutKind.Sequential)]
     public unsafe struct ENetCompressor
     {
         public void* context;
@@ -303,6 +311,7 @@ namespace enet
         public delegate* managed<void*, void> destroy;
     }
 
+    [StructLayout(LayoutKind.Sequential)]
     public unsafe struct ENetHost
     {
         public ENetSocket socket;
@@ -353,6 +362,7 @@ namespace enet
         }
     }
 
+    [StructLayout(LayoutKind.Sequential)]
     [ENetArray(ENET_PROTOCOL_MAXIMUM_PACKET_COMMANDS)]
     public struct ENetProtocols
     {
@@ -390,6 +400,7 @@ namespace enet
         public ENetProtocol command31;
     }
 
+    [StructLayout(LayoutKind.Sequential)]
     [ENetArray(ENET_BUFFER_MAXIMUM)]
     public struct ENetBuffers
     {
@@ -460,6 +471,7 @@ namespace enet
         public ENetBuffer buffer64;
     }
 
+    [StructLayout(LayoutKind.Sequential)]
     [ENetArray(2)]
     public unsafe struct ENetPacketData
     {
@@ -469,6 +481,7 @@ namespace enet
         public enet_uint8* this[int i] => ((ENetPacketDataBuffer*)Unsafe.AsPointer(ref this))[i].data;
     }
 
+    [StructLayout(LayoutKind.Sequential)]
     public unsafe struct ENetPacketDataBuffer
     {
         public fixed enet_uint8 data[(int)ENET_PROTOCOL_MAXIMUM_MTU];
@@ -482,6 +495,7 @@ namespace enet
         ENET_EVENT_TYPE_RECEIVE = 3
     }
 
+    [StructLayout(LayoutKind.Sequential)]
     public unsafe struct ENetEvent
     {
         public ENetEventType type;

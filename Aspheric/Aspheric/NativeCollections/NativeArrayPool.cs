@@ -90,7 +90,7 @@ namespace Erinn
         ///     Get hashCode
         /// </summary>
         /// <returns>HashCode</returns>
-        public override int GetHashCode() => (int)(nint)_buckets;
+        public override int GetHashCode() => ((nint)_buckets).GetHashCode();
 
         /// <summary>
         ///     To string
@@ -120,11 +120,12 @@ namespace Erinn
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void Dispose()
         {
-            if (_buckets == null)
+            var buckets = _buckets;
+            if (buckets == null)
                 return;
             for (var i = 0; i < _length; ++i)
-                _buckets[i].Dispose();
-            NativeMemoryAllocator.Free(_buckets);
+                buckets[i].Dispose();
+            NativeMemoryAllocator.Free(buckets);
         }
 
         /// <summary>
@@ -319,15 +320,18 @@ namespace Erinn
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
             public NativeArray<T> Rent()
             {
+                var array = _array;
                 T* ptr = null;
+                ref var spinLock = ref _lock;
+                ref var index = ref _index;
                 var lockTaken = false;
                 try
                 {
-                    _lock.Enter(ref lockTaken);
-                    if (_index < _size)
+                    spinLock.Enter(ref lockTaken);
+                    if (index < _size)
                     {
-                        ptr = _array[_index];
-                        _array[_index++] = null;
+                        ptr = array[index];
+                        array[index++] = null;
                     }
 
                     if (ptr == null)
@@ -336,7 +340,7 @@ namespace Erinn
                 finally
                 {
                     if (lockTaken)
-                        _lock.Exit(false);
+                        spinLock.Exit(false);
                 }
 
                 return new NativeArray<T>(ptr, _length);
@@ -349,19 +353,21 @@ namespace Erinn
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
             public void Return(T* ptr)
             {
+                ref var spinLock = ref _lock;
+                ref var index = ref _index;
                 var lockTaken = false;
                 try
                 {
-                    _lock.Enter(ref lockTaken);
-                    if (_index != 0)
-                        _array[--_index] = ptr;
+                    spinLock.Enter(ref lockTaken);
+                    if (index != 0)
+                        _array[--index] = ptr;
                     else
                         _memoryPool.Return(ptr);
                 }
                 finally
                 {
                     if (lockTaken)
-                        _lock.Exit(false);
+                        spinLock.Exit(false);
                 }
             }
         }

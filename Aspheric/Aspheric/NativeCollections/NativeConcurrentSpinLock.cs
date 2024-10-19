@@ -55,10 +55,11 @@ namespace Erinn
                 sleepThreshold = -1;
             else if (sleepThreshold >= 0 && sleepThreshold < 10)
                 sleepThreshold = 10;
-            _handle = (NativeConcurrentSpinLockHandle*)NativeMemoryAllocator.Alloc((uint)sizeof(NativeConcurrentSpinLockHandle));
-            _handle->SequenceNumber = 0;
-            _handle->NextSequenceNumber = 1;
-            _handle->SleepThreshold = sleepThreshold;
+            var handle = (NativeConcurrentSpinLockHandle*)NativeMemoryAllocator.Alloc((uint)sizeof(NativeConcurrentSpinLockHandle));
+            handle->SequenceNumber = 0;
+            handle->NextSequenceNumber = 1;
+            handle->SleepThreshold = sleepThreshold;
+            _handle = handle;
         }
 
         /// <summary>
@@ -89,7 +90,7 @@ namespace Erinn
         ///     Get hashCode
         /// </summary>
         /// <returns>HashCode</returns>
-        public override int GetHashCode() => (int)(nint)_handle;
+        public override int GetHashCode() => ((nint)_handle).GetHashCode();
 
         /// <summary>
         ///     To string
@@ -119,9 +120,10 @@ namespace Erinn
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void Dispose()
         {
-            if (_handle == null)
+            var handle = _handle;
+            if (handle == null)
                 return;
-            NativeMemoryAllocator.Free(_handle);
+            NativeMemoryAllocator.Free(handle);
         }
 
         /// <summary>
@@ -130,11 +132,12 @@ namespace Erinn
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void Enter()
         {
-            var sequenceNumber = Interlocked.Add(ref _handle->SequenceNumber, 1);
-            if (sequenceNumber != _handle->NextSequenceNumber)
+            var handle = _handle;
+            var sequenceNumber = Interlocked.Add(ref handle->SequenceNumber, 1);
+            if (sequenceNumber != handle->NextSequenceNumber)
             {
                 var count = 0;
-                var sleepThreshold = _handle->SleepThreshold;
+                var sleepThreshold = handle->SleepThreshold;
                 do
                 {
                     if ((count >= 10 && ((count >= sleepThreshold && sleepThreshold >= 0) || (count - 10) % 2 == 0)) || Environment.ProcessorCount == 1)
@@ -161,7 +164,7 @@ namespace Erinn
                     }
 
                     count = count == int.MaxValue ? 10 : count + 1;
-                } while (sequenceNumber != _handle->NextSequenceNumber);
+                } while (sequenceNumber != handle->NextSequenceNumber);
             }
         }
 

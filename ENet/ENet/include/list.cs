@@ -1,15 +1,18 @@
-﻿using unsafe ENetListIterator = enet.ENetListNode*;
+﻿using System.Runtime.InteropServices;
+using unsafe ENetListIterator = enet.ENetListNode*;
 
 // ReSharper disable ALL
 
 namespace enet
 {
+    [StructLayout(LayoutKind.Sequential)]
     public unsafe struct ENetListNode
     {
         public ENetListNode* next;
         public ENetListNode* previous;
     }
 
+    [StructLayout(LayoutKind.Sequential)]
     public struct ENetList
     {
         public ENetListNode sentinel;

@@ -147,8 +147,7 @@ namespace enet
         [DllImport(NATIVE_LIBRARY, EntryPoint = "nanosockets_poll", CallingConvention = CallingConvention.Cdecl)]
         public static extern int enet_socket_poll(ENetSocket socket, enet_uint32 timeout);
 
-        [DllImport(NATIVE_LIBRARY, EntryPoint = "nanosockets_address_set_ip", CallingConvention = CallingConvention.Cdecl)]
-        public static extern int enet_set_ip(ENetAddress* address, string ip);
+        public static int enet_set_ip(ENetAddress* address, string ip) => enet_set_ip(&address->host, ip);
 
         [DllImport(NATIVE_LIBRARY, EntryPoint = "nanosockets_address_get_ip", CallingConvention = CallingConvention.Cdecl)]
         public static extern int enet_get_ip(ENetAddress* address, void* buffer, int length);

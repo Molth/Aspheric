@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Buffers.Binary;
+using System.Runtime.InteropServices;
 using size_t = nint;
 using enet_uint16 = ushort;
 using enet_uint32 = uint;
@@ -23,6 +24,7 @@ namespace enet
         public static enet_uint32 ENET_NET_TO_HOST_32(enet_uint32 host) => BitConverter.IsLittleEndian ? BinaryPrimitives.ReverseEndianness(host) : host;
     }
 
+    [StructLayout(LayoutKind.Sequential)]
     public unsafe struct ENetBuffer
     {
         public size_t dataLength;
