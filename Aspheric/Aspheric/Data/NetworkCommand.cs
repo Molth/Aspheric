@@ -17,11 +17,11 @@ namespace Erinn
         /// <summary>
         ///     Session
         /// </summary>
-        [FieldOffset(4)] public NetworkSession Session;
+        [FieldOffset(8)] public NetworkSession Session;
 
         /// <summary>
         ///     Address
         /// </summary>
-        [FieldOffset(4)] public ENetAddress Address;
+        [FieldOffset(8)] public ENetAddress Address;
     }
 }
