@@ -22,7 +22,7 @@ namespace Erinn
         ///     Handle
         /// </summary>
         [StructLayout(LayoutKind.Explicit, Size = 24)]
-        private struct NativeStreamHandle
+        private struct DataStreamHandle
         {
             /// <summary>
             ///     Bytes read
@@ -43,7 +43,7 @@ namespace Erinn
         /// <summary>
         ///     Handle
         /// </summary>
-        private readonly NativeStreamHandle* _handle;
+        private readonly DataStreamHandle* _handle;
 
         /// <summary>
         ///     Structure
@@ -55,7 +55,7 @@ namespace Erinn
         {
             if (length < 24)
                 throw new ArgumentOutOfRangeException(nameof(length), $"Requires size is {24}, but buffer length is {length}.");
-            var handle = (NativeStreamHandle*)array;
+            var handle = (DataStreamHandle*)array;
             handle->BytesRead = 0;
             handle->BytesWritten = 0;
             handle->Buffer = new NativeSlice<byte>(array + 24, length - 24);
