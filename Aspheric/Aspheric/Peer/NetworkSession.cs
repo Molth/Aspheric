@@ -7,18 +7,18 @@ namespace Erinn
     /// <summary>
     ///     Network session
     /// </summary>
-    [StructLayout(LayoutKind.Sequential)]
+    [StructLayout(LayoutKind.Explicit)]
     public readonly struct NetworkSession : IEquatable<NetworkSession>
     {
         /// <summary>
         ///     Id
         /// </summary>
-        public readonly ushort Id;
+        [FieldOffset(0)] public readonly ushort Id;
 
         /// <summary>
         ///     Token
         /// </summary>
-        public readonly Guid Token;
+        [FieldOffset(4)] public readonly Guid Token;
 
         /// <summary>
         ///     Structure
