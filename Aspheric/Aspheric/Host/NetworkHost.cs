@@ -16,7 +16,7 @@ namespace Erinn
     ///     Network host
     /// </summary>
     [StructLayout(LayoutKind.Sequential)]
-    public readonly unsafe struct NetworkHost : IDisposable
+    public readonly unsafe struct NetworkHost : IDisposable, IEquatable<NetworkHost>
     {
         /// <summary>
         ///     Handle
@@ -681,9 +681,7 @@ namespace Erinn
                 return false;
             if (!handle->RpcMethods.TryGetCommand((nint)address, out var command))
                 return false;
-            var buffer = stackalloc byte[4];
-            Unsafe.Write(buffer, command);
-            var packet = enet_packet_create(buffer, 4, (uint)flags);
+            var packet = enet_packet_create(&command, 4, (uint)flags);
             handle->Outgoings.Enqueue(new NetworkPacket(session, packet));
             return true;
         }
@@ -1131,6 +1129,533 @@ namespace Erinn
         {
             var handle = _handle;
             var session = peer.Session;
+            if (session.Token != handle->Tokens[session.Id])
+                return false;
+            if (!handle->RpcMethods.TryGetCommand((nint)address, out var command))
+                return false;
+            var buffer = stackalloc byte[1416];
+            var stream = new DataStream(buffer, 1416);
+            stream.Write(command);
+            stream.Write(arg0);
+            stream.Write(arg1);
+            stream.Write(arg2);
+            stream.Write(arg3);
+            stream.Write(arg4);
+            stream.Write(arg5);
+            stream.Write(arg6);
+            stream.Write(arg7);
+            stream.Write(arg8);
+            stream.Write(arg9);
+            stream.Write(arg10);
+            stream.Write(arg11);
+            stream.Write(arg12);
+            stream.Write(arg13);
+            stream.Write(arg14);
+            stream.Write(arg15);
+            var data = buffer + 24;
+            var packet = enet_packet_create(data, stream.BytesWritten, (uint)flags);
+            handle->Outgoings.Enqueue(new NetworkPacket(session, packet));
+            return true;
+        }
+
+        /// <summary>
+        ///     Check is connected
+        /// </summary>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public bool IsConnected(in NetworkSession session) => session.Token != Guid.Empty && session.Token == _handle->Tokens[session.Id];
+
+        /// <summary>
+        ///     Disconnect
+        /// </summary>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public bool Disconnect(in NetworkSession session)
+        {
+            var handle = _handle;
+            if (session.Token != handle->Tokens[session.Id])
+                return false;
+            handle->Commands.Enqueue(new NetworkCommand
+            {
+                CommandType = NetworkCommandType.Disconnect,
+                Session = session
+            });
+            return true;
+        }
+
+        /// <summary>
+        ///     Send
+        /// </summary>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public bool Send(in NetworkSession session, in NetworkPacketFlag flags, byte* buffer, int length)
+        {
+            if (length > 1392)
+                return false;
+            var handle = _handle;
+            if (session.Token != handle->Tokens[session.Id])
+                return false;
+            var packet = enet_packet_create(buffer, length, (uint)flags);
+            handle->Outgoings.Enqueue(new NetworkPacket(session, packet));
+            return true;
+        }
+
+        /// <summary>
+        ///     Send
+        /// </summary>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public bool Send(in NetworkSession session, in NetworkPacketFlag flags, in DataStream stream)
+        {
+            if (stream.BytesWritten > 1392)
+                return false;
+            var handle = _handle;
+            if (session.Token != handle->Tokens[session.Id])
+                return false;
+            var packet = enet_packet_create(stream.Bytes, stream.BytesWritten, (uint)flags);
+            handle->Outgoings.Enqueue(new NetworkPacket(session, packet));
+            return true;
+        }
+
+        /// <summary>
+        ///     Send
+        /// </summary>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public bool Send(in NetworkSession session, in NetworkPacketFlag flags, delegate* managed<in NetworkPeer, in NetworkPacketFlag, void> address)
+        {
+            var handle = _handle;
+            if (session.Token != handle->Tokens[session.Id])
+                return false;
+            if (!handle->RpcMethods.TryGetCommand((nint)address, out var command))
+                return false;
+            var packet = enet_packet_create(&command, 4, (uint)flags);
+            handle->Outgoings.Enqueue(new NetworkPacket(session, packet));
+            return true;
+        }
+
+        /// <summary>
+        ///     Send
+        /// </summary>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public bool Send<T0>(in NetworkSession session, in NetworkPacketFlag flags, delegate* managed<in NetworkPeer, in NetworkPacketFlag, in T0, void> address, in T0 arg0)
+        {
+            var handle = _handle;
+            if (session.Token != handle->Tokens[session.Id])
+                return false;
+            if (!handle->RpcMethods.TryGetCommand((nint)address, out var command))
+                return false;
+            var buffer = stackalloc byte[1416];
+            var stream = new DataStream(buffer, 1416);
+            stream.Write(command);
+            stream.Write(arg0);
+            var data = buffer + 24;
+            var packet = enet_packet_create(data, stream.BytesWritten, (uint)flags);
+            handle->Outgoings.Enqueue(new NetworkPacket(session, packet));
+            return true;
+        }
+
+        /// <summary>
+        ///     Send
+        /// </summary>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public bool Send<T0, T1>(in NetworkSession session, in NetworkPacketFlag flags, delegate* managed<in NetworkPeer, in NetworkPacketFlag, in T0, in T1, void> address, in T0 arg0, in T1 arg1)
+        {
+            var handle = _handle;
+            if (session.Token != handle->Tokens[session.Id])
+                return false;
+            if (!handle->RpcMethods.TryGetCommand((nint)address, out var command))
+                return false;
+            var buffer = stackalloc byte[1416];
+            var stream = new DataStream(buffer, 1416);
+            stream.Write(command);
+            stream.Write(arg0);
+            stream.Write(arg1);
+            var data = buffer + 24;
+            var packet = enet_packet_create(data, stream.BytesWritten, (uint)flags);
+            handle->Outgoings.Enqueue(new NetworkPacket(session, packet));
+            return true;
+        }
+
+        /// <summary>
+        ///     Send
+        /// </summary>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public bool Send<T0, T1, T2>(in NetworkSession session, in NetworkPacketFlag flags, delegate* managed<in NetworkPeer, in NetworkPacketFlag, in T0, in T1, in T2, void> address, in T0 arg0, in T1 arg1, in T2 arg2)
+        {
+            var handle = _handle;
+            if (session.Token != handle->Tokens[session.Id])
+                return false;
+            if (!handle->RpcMethods.TryGetCommand((nint)address, out var command))
+                return false;
+            var buffer = stackalloc byte[1416];
+            var stream = new DataStream(buffer, 1416);
+            stream.Write(command);
+            stream.Write(arg0);
+            stream.Write(arg1);
+            stream.Write(arg2);
+            var data = buffer + 24;
+            var packet = enet_packet_create(data, stream.BytesWritten, (uint)flags);
+            handle->Outgoings.Enqueue(new NetworkPacket(session, packet));
+            return true;
+        }
+
+        /// <summary>
+        ///     Send
+        /// </summary>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public bool Send<T0, T1, T2, T3>(in NetworkSession session, in NetworkPacketFlag flags, delegate* managed<in NetworkPeer, in NetworkPacketFlag, in T0, in T1, in T2, in T3, void> address, in T0 arg0, in T1 arg1, in T2 arg2, in T3 arg3)
+        {
+            var handle = _handle;
+            if (session.Token != handle->Tokens[session.Id])
+                return false;
+            if (!handle->RpcMethods.TryGetCommand((nint)address, out var command))
+                return false;
+            var buffer = stackalloc byte[1416];
+            var stream = new DataStream(buffer, 1416);
+            stream.Write(command);
+            stream.Write(arg0);
+            stream.Write(arg1);
+            stream.Write(arg2);
+            stream.Write(arg3);
+            var data = buffer + 24;
+            var packet = enet_packet_create(data, stream.BytesWritten, (uint)flags);
+            handle->Outgoings.Enqueue(new NetworkPacket(session, packet));
+            return true;
+        }
+
+        /// <summary>
+        ///     Send
+        /// </summary>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public bool Send<T0, T1, T2, T3, T4>(in NetworkSession session, in NetworkPacketFlag flags, delegate* managed<in NetworkPeer, in NetworkPacketFlag, in T0, in T1, in T2, in T3, in T4, void> address, in T0 arg0, in T1 arg1, in T2 arg2, in T3 arg3, in T4 arg4)
+        {
+            var handle = _handle;
+            if (session.Token != handle->Tokens[session.Id])
+                return false;
+            if (!handle->RpcMethods.TryGetCommand((nint)address, out var command))
+                return false;
+            var buffer = stackalloc byte[1416];
+            var stream = new DataStream(buffer, 1416);
+            stream.Write(command);
+            stream.Write(arg0);
+            stream.Write(arg1);
+            stream.Write(arg2);
+            stream.Write(arg3);
+            stream.Write(arg4);
+            var data = buffer + 24;
+            var packet = enet_packet_create(data, stream.BytesWritten, (uint)flags);
+            handle->Outgoings.Enqueue(new NetworkPacket(session, packet));
+            return true;
+        }
+
+        /// <summary>
+        ///     Send
+        /// </summary>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public bool Send<T0, T1, T2, T3, T4, T5>(in NetworkSession session, in NetworkPacketFlag flags, delegate* managed<in NetworkPeer, in NetworkPacketFlag, in T0, in T1, in T2, in T3, in T4, in T5, void> address, in T0 arg0, in T1 arg1, in T2 arg2, in T3 arg3, in T4 arg4, in T5 arg5)
+        {
+            var handle = _handle;
+            if (session.Token != handle->Tokens[session.Id])
+                return false;
+            if (!handle->RpcMethods.TryGetCommand((nint)address, out var command))
+                return false;
+            var buffer = stackalloc byte[1416];
+            var stream = new DataStream(buffer, 1416);
+            stream.Write(command);
+            stream.Write(arg0);
+            stream.Write(arg1);
+            stream.Write(arg2);
+            stream.Write(arg3);
+            stream.Write(arg4);
+            stream.Write(arg5);
+            var data = buffer + 24;
+            var packet = enet_packet_create(data, stream.BytesWritten, (uint)flags);
+            handle->Outgoings.Enqueue(new NetworkPacket(session, packet));
+            return true;
+        }
+
+        /// <summary>
+        ///     Send
+        /// </summary>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public bool Send<T0, T1, T2, T3, T4, T5, T6>(in NetworkSession session, in NetworkPacketFlag flags, delegate* managed<in NetworkPeer, in NetworkPacketFlag, in T0, in T1, in T2, in T3, in T4, in T5, in T6, void> address, in T0 arg0, in T1 arg1, in T2 arg2, in T3 arg3, in T4 arg4, in T5 arg5, in T6 arg6)
+        {
+            var handle = _handle;
+            if (session.Token != handle->Tokens[session.Id])
+                return false;
+            if (!handle->RpcMethods.TryGetCommand((nint)address, out var command))
+                return false;
+            var buffer = stackalloc byte[1416];
+            var stream = new DataStream(buffer, 1416);
+            stream.Write(command);
+            stream.Write(arg0);
+            stream.Write(arg1);
+            stream.Write(arg2);
+            stream.Write(arg3);
+            stream.Write(arg4);
+            stream.Write(arg5);
+            stream.Write(arg6);
+            var data = buffer + 24;
+            var packet = enet_packet_create(data, stream.BytesWritten, (uint)flags);
+            handle->Outgoings.Enqueue(new NetworkPacket(session, packet));
+            return true;
+        }
+
+        /// <summary>
+        ///     Send
+        /// </summary>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public bool Send<T0, T1, T2, T3, T4, T5, T6, T7>(in NetworkSession session, in NetworkPacketFlag flags, delegate* managed<in NetworkPeer, in NetworkPacketFlag, in T0, in T1, in T2, in T3, in T4, in T5, in T6, in T7, void> address, in T0 arg0, in T1 arg1, in T2 arg2, in T3 arg3, in T4 arg4, in T5 arg5, in T6 arg6, in T7 arg7)
+        {
+            var handle = _handle;
+            if (session.Token != handle->Tokens[session.Id])
+                return false;
+            if (!handle->RpcMethods.TryGetCommand((nint)address, out var command))
+                return false;
+            var buffer = stackalloc byte[1416];
+            var stream = new DataStream(buffer, 1416);
+            stream.Write(command);
+            stream.Write(arg0);
+            stream.Write(arg1);
+            stream.Write(arg2);
+            stream.Write(arg3);
+            stream.Write(arg4);
+            stream.Write(arg5);
+            stream.Write(arg6);
+            stream.Write(arg7);
+            var data = buffer + 24;
+            var packet = enet_packet_create(data, stream.BytesWritten, (uint)flags);
+            handle->Outgoings.Enqueue(new NetworkPacket(session, packet));
+            return true;
+        }
+
+        /// <summary>
+        ///     Send
+        /// </summary>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public bool Send<T0, T1, T2, T3, T4, T5, T6, T7, T8>(in NetworkSession session, in NetworkPacketFlag flags, delegate* managed<in NetworkPeer, in NetworkPacketFlag, in T0, in T1, in T2, in T3, in T4, in T5, in T6, in T7, in T8, void> address, in T0 arg0, in T1 arg1, in T2 arg2, in T3 arg3, in T4 arg4, in T5 arg5, in T6 arg6, in T7 arg7, in T8 arg8)
+        {
+            var handle = _handle;
+            if (session.Token != handle->Tokens[session.Id])
+                return false;
+            if (!handle->RpcMethods.TryGetCommand((nint)address, out var command))
+                return false;
+            var buffer = stackalloc byte[1416];
+            var stream = new DataStream(buffer, 1416);
+            stream.Write(command);
+            stream.Write(arg0);
+            stream.Write(arg1);
+            stream.Write(arg2);
+            stream.Write(arg3);
+            stream.Write(arg4);
+            stream.Write(arg5);
+            stream.Write(arg6);
+            stream.Write(arg7);
+            stream.Write(arg8);
+            var data = buffer + 24;
+            var packet = enet_packet_create(data, stream.BytesWritten, (uint)flags);
+            handle->Outgoings.Enqueue(new NetworkPacket(session, packet));
+            return true;
+        }
+
+        /// <summary>
+        ///     Send
+        /// </summary>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public bool Send<T0, T1, T2, T3, T4, T5, T6, T7, T8, T9>(in NetworkSession session, in NetworkPacketFlag flags, delegate* managed<in NetworkPeer, in NetworkPacketFlag, in T0, in T1, in T2, in T3, in T4, in T5, in T6, in T7, in T8, in T9, void> address, in T0 arg0, in T1 arg1, in T2 arg2, in T3 arg3, in T4 arg4, in T5 arg5, in T6 arg6, in T7 arg7, in T8 arg8, in T9 arg9)
+        {
+            var handle = _handle;
+            if (session.Token != handle->Tokens[session.Id])
+                return false;
+            if (!handle->RpcMethods.TryGetCommand((nint)address, out var command))
+                return false;
+            var buffer = stackalloc byte[1416];
+            var stream = new DataStream(buffer, 1416);
+            stream.Write(command);
+            stream.Write(arg0);
+            stream.Write(arg1);
+            stream.Write(arg2);
+            stream.Write(arg3);
+            stream.Write(arg4);
+            stream.Write(arg5);
+            stream.Write(arg6);
+            stream.Write(arg7);
+            stream.Write(arg8);
+            stream.Write(arg9);
+            var data = buffer + 24;
+            var packet = enet_packet_create(data, stream.BytesWritten, (uint)flags);
+            handle->Outgoings.Enqueue(new NetworkPacket(session, packet));
+            return true;
+        }
+
+        /// <summary>
+        ///     Send
+        /// </summary>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public bool Send<T0, T1, T2, T3, T4, T5, T6, T7, T8, T9, T10>(in NetworkSession session, in NetworkPacketFlag flags, delegate* managed<in NetworkPeer, in NetworkPacketFlag, in T0, in T1, in T2, in T3, in T4, in T5, in T6, in T7, in T8, in T9, in T10, void> address, in T0 arg0, in T1 arg1, in T2 arg2, in T3 arg3, in T4 arg4, in T5 arg5, in T6 arg6, in T7 arg7, in T8 arg8, in T9 arg9, in T10 arg10)
+        {
+            var handle = _handle;
+            if (session.Token != handle->Tokens[session.Id])
+                return false;
+            if (!handle->RpcMethods.TryGetCommand((nint)address, out var command))
+                return false;
+            var buffer = stackalloc byte[1416];
+            var stream = new DataStream(buffer, 1416);
+            stream.Write(command);
+            stream.Write(arg0);
+            stream.Write(arg1);
+            stream.Write(arg2);
+            stream.Write(arg3);
+            stream.Write(arg4);
+            stream.Write(arg5);
+            stream.Write(arg6);
+            stream.Write(arg7);
+            stream.Write(arg8);
+            stream.Write(arg9);
+            stream.Write(arg10);
+            var data = buffer + 24;
+            var packet = enet_packet_create(data, stream.BytesWritten, (uint)flags);
+            handle->Outgoings.Enqueue(new NetworkPacket(session, packet));
+            return true;
+        }
+
+        /// <summary>
+        ///     Send
+        /// </summary>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public bool Send<T0, T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11>(in NetworkSession session, in NetworkPacketFlag flags, delegate* managed<in NetworkPeer, in NetworkPacketFlag, in T0, in T1, in T2, in T3, in T4, in T5, in T6, in T7, in T8, in T9, in T10, in T11, void> address, in T0 arg0, in T1 arg1, in T2 arg2, in T3 arg3, in T4 arg4, in T5 arg5, in T6 arg6, in T7 arg7, in T8 arg8, in T9 arg9, in T10 arg10, in T11 arg11)
+        {
+            var handle = _handle;
+            if (session.Token != handle->Tokens[session.Id])
+                return false;
+            if (!handle->RpcMethods.TryGetCommand((nint)address, out var command))
+                return false;
+            var buffer = stackalloc byte[1416];
+            var stream = new DataStream(buffer, 1416);
+            stream.Write(command);
+            stream.Write(arg0);
+            stream.Write(arg1);
+            stream.Write(arg2);
+            stream.Write(arg3);
+            stream.Write(arg4);
+            stream.Write(arg5);
+            stream.Write(arg6);
+            stream.Write(arg7);
+            stream.Write(arg8);
+            stream.Write(arg9);
+            stream.Write(arg10);
+            stream.Write(arg11);
+            var data = buffer + 24;
+            var packet = enet_packet_create(data, stream.BytesWritten, (uint)flags);
+            handle->Outgoings.Enqueue(new NetworkPacket(session, packet));
+            return true;
+        }
+
+        /// <summary>
+        ///     Send
+        /// </summary>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public bool Send<T0, T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12>(in NetworkSession session, in NetworkPacketFlag flags, delegate* managed<in NetworkPeer, in NetworkPacketFlag, in T0, in T1, in T2, in T3, in T4, in T5, in T6, in T7, in T8, in T9, in T10, in T11, in T12, void> address, in T0 arg0, in T1 arg1, in T2 arg2, in T3 arg3, in T4 arg4, in T5 arg5, in T6 arg6, in T7 arg7, in T8 arg8, in T9 arg9, in T10 arg10, in T11 arg11, in T12 arg12)
+        {
+            var handle = _handle;
+            if (session.Token != handle->Tokens[session.Id])
+                return false;
+            if (!handle->RpcMethods.TryGetCommand((nint)address, out var command))
+                return false;
+            var buffer = stackalloc byte[1416];
+            var stream = new DataStream(buffer, 1416);
+            stream.Write(command);
+            stream.Write(arg0);
+            stream.Write(arg1);
+            stream.Write(arg2);
+            stream.Write(arg3);
+            stream.Write(arg4);
+            stream.Write(arg5);
+            stream.Write(arg6);
+            stream.Write(arg7);
+            stream.Write(arg8);
+            stream.Write(arg9);
+            stream.Write(arg10);
+            stream.Write(arg11);
+            stream.Write(arg12);
+            var data = buffer + 24;
+            var packet = enet_packet_create(data, stream.BytesWritten, (uint)flags);
+            handle->Outgoings.Enqueue(new NetworkPacket(session, packet));
+            return true;
+        }
+
+        /// <summary>
+        ///     Send
+        /// </summary>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public bool Send<T0, T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13>(in NetworkSession session, in NetworkPacketFlag flags, delegate* managed<in NetworkPeer, in NetworkPacketFlag, in T0, in T1, in T2, in T3, in T4, in T5, in T6, in T7, in T8, in T9, in T10, in T11, in T12, in T13, void> address, in T0 arg0, in T1 arg1, in T2 arg2, in T3 arg3, in T4 arg4, in T5 arg5, in T6 arg6, in T7 arg7, in T8 arg8, in T9 arg9, in T10 arg10, in T11 arg11, in T12 arg12, in T13 arg13)
+        {
+            var handle = _handle;
+            if (session.Token != handle->Tokens[session.Id])
+                return false;
+            if (!handle->RpcMethods.TryGetCommand((nint)address, out var command))
+                return false;
+            var buffer = stackalloc byte[1416];
+            var stream = new DataStream(buffer, 1416);
+            stream.Write(command);
+            stream.Write(arg0);
+            stream.Write(arg1);
+            stream.Write(arg2);
+            stream.Write(arg3);
+            stream.Write(arg4);
+            stream.Write(arg5);
+            stream.Write(arg6);
+            stream.Write(arg7);
+            stream.Write(arg8);
+            stream.Write(arg9);
+            stream.Write(arg10);
+            stream.Write(arg11);
+            stream.Write(arg12);
+            stream.Write(arg13);
+            var data = buffer + 24;
+            var packet = enet_packet_create(data, stream.BytesWritten, (uint)flags);
+            handle->Outgoings.Enqueue(new NetworkPacket(session, packet));
+            return true;
+        }
+
+        /// <summary>
+        ///     Send
+        /// </summary>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public bool Send<T0, T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14>(in NetworkSession session, in NetworkPacketFlag flags, delegate* managed<in NetworkPeer, in NetworkPacketFlag, in T0, in T1, in T2, in T3, in T4, in T5, in T6, in T7, in T8, in T9, in T10, in T11, in T12, in T13, in T14, void> address, in T0 arg0, in T1 arg1, in T2 arg2, in T3 arg3, in T4 arg4, in T5 arg5, in T6 arg6, in T7 arg7, in T8 arg8, in T9 arg9, in T10 arg10, in T11 arg11, in T12 arg12, in T13 arg13, in T14 arg14)
+        {
+            var handle = _handle;
+            if (session.Token != handle->Tokens[session.Id])
+                return false;
+            if (!handle->RpcMethods.TryGetCommand((nint)address, out var command))
+                return false;
+            var buffer = stackalloc byte[1416];
+            var stream = new DataStream(buffer, 1416);
+            stream.Write(command);
+            stream.Write(arg0);
+            stream.Write(arg1);
+            stream.Write(arg2);
+            stream.Write(arg3);
+            stream.Write(arg4);
+            stream.Write(arg5);
+            stream.Write(arg6);
+            stream.Write(arg7);
+            stream.Write(arg8);
+            stream.Write(arg9);
+            stream.Write(arg10);
+            stream.Write(arg11);
+            stream.Write(arg12);
+            stream.Write(arg13);
+            stream.Write(arg14);
+            var data = buffer + 24;
+            var packet = enet_packet_create(data, stream.BytesWritten, (uint)flags);
+            handle->Outgoings.Enqueue(new NetworkPacket(session, packet));
+            return true;
+        }
+
+        /// <summary>
+        ///     Send
+        /// </summary>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public bool Send<T0, T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14, T15>(in NetworkSession session, in NetworkPacketFlag flags, delegate* managed<in NetworkPeer, in NetworkPacketFlag, in T0, in T1, in T2, in T3, in T4, in T5, in T6, in T7, in T8, in T9, in T10, in T11, in T12, in T13, in T14, in T15, void> address, in T0 arg0, in T1 arg1, in T2 arg2, in T3 arg3, in T4 arg4, in T5 arg5, in T6 arg6, in T7 arg7, in T8 arg8, in T9 arg9, in T10 arg10, in T11 arg11, in T12 arg12, in T13 arg13, in T14 arg14, in T15 arg15)
+        {
+            var handle = _handle;
             if (session.Token != handle->Tokens[session.Id])
                 return false;
             if (!handle->RpcMethods.TryGetCommand((nint)address, out var command))
