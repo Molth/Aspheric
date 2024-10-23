@@ -10,11 +10,6 @@ namespace Erinn
     public readonly struct NetworkHostOptions
     {
         /// <summary>
-        ///     Port
-        /// </summary>
-        public readonly ushort Port;
-
-        /// <summary>
         ///     Peer count
         /// </summary>
         public readonly ushort PeerCount;
@@ -42,16 +37,14 @@ namespace Erinn
         /// <summary>
         ///     Structure
         /// </summary>
-        /// <param name="port">Port</param>
         /// <param name="peerCount">Peer count</param>
         /// <param name="pingInterval">Ping interval</param>
         /// <param name="timeout">Timeout</param>
         /// <param name="incomingBandwidth">Incoming bandwidth</param>
         /// <param name="outgoingBandwidth">Outgoing bandwidth</param>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public NetworkHostOptions(ushort port, ushort peerCount, uint pingInterval, uint timeout, uint incomingBandwidth, uint outgoingBandwidth)
+        public NetworkHostOptions(ushort peerCount, uint pingInterval, uint timeout, uint incomingBandwidth, uint outgoingBandwidth)
         {
-            Port = port;
             PeerCount = peerCount;
             PingInterval = pingInterval;
             Timeout = timeout;

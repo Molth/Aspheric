@@ -8,7 +8,7 @@ namespace Erinn
     ///     Network event
     /// </summary>
     [StructLayout(LayoutKind.Sequential)]
-    public readonly unsafe struct NetworkOnErrorEvent : IDisposable
+    public readonly unsafe struct NetworkOnErroredEvent : IDisposable
     {
         /// <summary>
         ///     Events
@@ -20,7 +20,7 @@ namespace Erinn
         /// </summary>
         /// <param name="capacity">Capacity</param>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public NetworkOnErrorEvent(int capacity) => _events = new NativeHashSet<nint>(capacity);
+        public NetworkOnErroredEvent(int capacity) => _events = new NativeHashSet<nint>(capacity);
 
         /// <summary>
         ///     Add

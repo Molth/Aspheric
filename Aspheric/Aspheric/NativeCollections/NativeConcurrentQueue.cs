@@ -17,12 +17,12 @@ namespace Erinn
     /// <typeparam name="T">Type</typeparam>
     [StructLayout(LayoutKind.Sequential)]
     [NativeCollection]
-    public unsafe struct NativeConcurrentQueue<T> : IDisposable, IEquatable<NativeConcurrentQueue<T>> where T : unmanaged
+    public readonly unsafe struct NativeConcurrentQueue<T> : IDisposable, IEquatable<NativeConcurrentQueue<T>> where T : unmanaged
     {
         /// <summary>
         ///     Handle
         /// </summary>
-        private void* _handle;
+        private readonly void* _handle;
 
         /// <summary>
         ///     Not arm64
@@ -226,9 +226,9 @@ namespace Erinn
                     var next = Volatile.Read(ref segment->NextSegment);
                     if (segment->TryPeek())
                         return false;
-                    if (next != IntPtr.Zero)
+                    if (next != nint.Zero)
                         segment = (NativeConcurrentQueueSegmentNotArm64<T>*)next;
-                    else if (Volatile.Read(ref segment->NextSegment) == IntPtr.Zero)
+                    else if (Volatile.Read(ref segment->NextSegment) == nint.Zero)
                         break;
                 }
 
@@ -244,7 +244,7 @@ namespace Erinn
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
             get
             {
-                var spinCount = 0;
+                var spinWait = new FastSpinWait();
                 while (true)
                 {
                     var head = _head;
@@ -287,23 +287,7 @@ namespace Erinn
                         }
                     }
 
-                    if ((spinCount >= 10 && (spinCount - 10) % 2 == 0) || Environment.ProcessorCount == 1)
-                    {
-                        var yieldsSoFar = spinCount >= 10 ? (spinCount - 10) / 2 : spinCount;
-                        if (yieldsSoFar % 5 == 4)
-                            Thread.Sleep(0);
-                        else
-                            Thread.Yield();
-                    }
-                    else
-                    {
-                        var iterations = Environment.ProcessorCount / 2;
-                        if (spinCount <= 30 && 1 << spinCount < iterations)
-                            iterations = 1 << spinCount;
-                        Thread.SpinWait(iterations);
-                    }
-
-                    spinCount = spinCount == int.MaxValue ? 10 : spinCount + 1;
+                    spinWait.SpinOnce();
                 }
             }
         }
@@ -408,7 +392,7 @@ namespace Erinn
             var head = _head;
             if (head->TryDequeue(out result))
                 return true;
-            if (head->NextSegment == IntPtr.Zero)
+            if (head->NextSegment == nint.Zero)
             {
                 result = default;
                 return false;
@@ -419,7 +403,7 @@ namespace Erinn
                 head = _head;
                 if (head->TryDequeue(out result))
                     return true;
-                if (head->NextSegment == IntPtr.Zero)
+                if (head->NextSegment == nint.Zero)
                 {
                     result = default;
                     return false;
@@ -543,7 +527,7 @@ namespace Erinn
                 Slots[i].SequenceNumber = i;
             HeadAndTail = new NativeConcurrentQueuePaddedHeadAndTailNotArm64();
             FrozenForEnqueues = false;
-            NextSegment = IntPtr.Zero;
+            NextSegment = nint.Zero;
         }
 
         /// <summary>
@@ -573,7 +557,7 @@ namespace Erinn
         public bool TryDequeue(out T result)
         {
             var slots = Slots;
-            var count = 0;
+            var spinWait = new FastSpinWait();
             while (true)
             {
                 var currentHead = Volatile.Read(ref HeadAndTail.Head);
@@ -599,23 +583,7 @@ namespace Erinn
                         return false;
                     }
 
-                    if ((count >= 10 && (count - 10) % 2 == 0) || Environment.ProcessorCount == 1)
-                    {
-                        var yieldsSoFar = count >= 10 ? (count - 10) / 2 : count;
-                        if (yieldsSoFar % 5 == 4)
-                            Thread.Sleep(0);
-                        else
-                            Thread.Yield();
-                    }
-                    else
-                    {
-                        var iterations = Environment.ProcessorCount / 2;
-                        if (count <= 30 && 1 << count < iterations)
-                            iterations = 1 << count;
-                        Thread.SpinWait(iterations);
-                    }
-
-                    count = count == int.MaxValue ? 10 : count + 1;
+                    spinWait.SpinOnce();
                 }
             }
         }
@@ -628,7 +596,7 @@ namespace Erinn
         public bool TryPeek()
         {
             var slots = Slots;
-            var count = 0;
+            var spinWait = new FastSpinWait();
             while (true)
             {
                 var currentHead = Volatile.Read(ref HeadAndTail.Head);
@@ -643,23 +611,7 @@ namespace Erinn
                     var currentTail = Volatile.Read(ref HeadAndTail.Tail);
                     if (currentTail - currentHead <= 0 || (frozen && currentTail - FREEZE_OFFSET - currentHead <= 0))
                         return false;
-                    if ((count >= 10 && (count - 10) % 2 == 0) || Environment.ProcessorCount == 1)
-                    {
-                        var yieldsSoFar = count >= 10 ? (count - 10) / 2 : count;
-                        if (yieldsSoFar % 5 == 4)
-                            Thread.Sleep(0);
-                        else
-                            Thread.Yield();
-                    }
-                    else
-                    {
-                        var iterations = Environment.ProcessorCount / 2;
-                        if (count <= 30 && 1 << count < iterations)
-                            iterations = 1 << count;
-                        Thread.SpinWait(iterations);
-                    }
-
-                    count = count == int.MaxValue ? 10 : count + 1;
+                    spinWait.SpinOnce();
                 }
             }
         }
@@ -777,9 +729,9 @@ namespace Erinn
                     var next = Volatile.Read(ref segment->NextSegment);
                     if (segment->TryPeek())
                         return false;
-                    if (next != IntPtr.Zero)
+                    if (next != nint.Zero)
                         segment = (NativeConcurrentQueueSegmentArm64<T>*)next;
-                    else if (Volatile.Read(ref segment->NextSegment) == IntPtr.Zero)
+                    else if (Volatile.Read(ref segment->NextSegment) == nint.Zero)
                         break;
                 }
 
@@ -795,7 +747,7 @@ namespace Erinn
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
             get
             {
-                var spinCount = 0;
+                var spinWait = new FastSpinWait();
                 while (true)
                 {
                     var head = _head;
@@ -838,23 +790,7 @@ namespace Erinn
                         }
                     }
 
-                    if ((spinCount >= 10 && (spinCount - 10) % 2 == 0) || Environment.ProcessorCount == 1)
-                    {
-                        var yieldsSoFar = spinCount >= 10 ? (spinCount - 10) / 2 : spinCount;
-                        if (yieldsSoFar % 5 == 4)
-                            Thread.Sleep(0);
-                        else
-                            Thread.Yield();
-                    }
-                    else
-                    {
-                        var iterations = Environment.ProcessorCount / 2;
-                        if (spinCount <= 30 && 1 << spinCount < iterations)
-                            iterations = 1 << spinCount;
-                        Thread.SpinWait(iterations);
-                    }
-
-                    spinCount = spinCount == int.MaxValue ? 10 : spinCount + 1;
+                    spinWait.SpinOnce();
                 }
             }
         }
@@ -959,7 +895,7 @@ namespace Erinn
             var head = _head;
             if (head->TryDequeue(out result))
                 return true;
-            if (head->NextSegment == IntPtr.Zero)
+            if (head->NextSegment == nint.Zero)
             {
                 result = default;
                 return false;
@@ -970,7 +906,7 @@ namespace Erinn
                 head = _head;
                 if (head->TryDequeue(out result))
                     return true;
-                if (head->NextSegment == IntPtr.Zero)
+                if (head->NextSegment == nint.Zero)
                 {
                     result = default;
                     return false;
@@ -1094,7 +1030,7 @@ namespace Erinn
                 Slots[i].SequenceNumber = i;
             HeadAndTail = new NativeConcurrentQueuePaddedHeadAndTailArm64();
             FrozenForEnqueues = false;
-            NextSegment = IntPtr.Zero;
+            NextSegment = nint.Zero;
         }
 
         /// <summary>
@@ -1124,7 +1060,7 @@ namespace Erinn
         public bool TryDequeue(out T result)
         {
             var slots = Slots;
-            var count = 0;
+            var spinWait = new FastSpinWait();
             while (true)
             {
                 var currentHead = Volatile.Read(ref HeadAndTail.Head);
@@ -1150,23 +1086,7 @@ namespace Erinn
                         return false;
                     }
 
-                    if ((count >= 10 && (count - 10) % 2 == 0) || Environment.ProcessorCount == 1)
-                    {
-                        var yieldsSoFar = count >= 10 ? (count - 10) / 2 : count;
-                        if (yieldsSoFar % 5 == 4)
-                            Thread.Sleep(0);
-                        else
-                            Thread.Yield();
-                    }
-                    else
-                    {
-                        var iterations = Environment.ProcessorCount / 2;
-                        if (count <= 30 && 1 << count < iterations)
-                            iterations = 1 << count;
-                        Thread.SpinWait(iterations);
-                    }
-
-                    count = count == int.MaxValue ? 10 : count + 1;
+                    spinWait.SpinOnce();
                 }
             }
         }
@@ -1179,7 +1099,7 @@ namespace Erinn
         public bool TryPeek()
         {
             var slots = Slots;
-            var count = 0;
+            var spinWait = new FastSpinWait();
             while (true)
             {
                 var currentHead = Volatile.Read(ref HeadAndTail.Head);
@@ -1194,23 +1114,7 @@ namespace Erinn
                     var currentTail = Volatile.Read(ref HeadAndTail.Tail);
                     if (currentTail - currentHead <= 0 || (frozen && currentTail - FREEZE_OFFSET - currentHead <= 0))
                         return false;
-                    if ((count >= 10 && (count - 10) % 2 == 0) || Environment.ProcessorCount == 1)
-                    {
-                        var yieldsSoFar = count >= 10 ? (count - 10) / 2 : count;
-                        if (yieldsSoFar % 5 == 4)
-                            Thread.Sleep(0);
-                        else
-                            Thread.Yield();
-                    }
-                    else
-                    {
-                        var iterations = Environment.ProcessorCount / 2;
-                        if (count <= 30 && 1 << count < iterations)
-                            iterations = 1 << count;
-                        Thread.SpinWait(iterations);
-                    }
-
-                    count = count == int.MaxValue ? 10 : count + 1;
+                    spinWait.SpinOnce();
                 }
             }
         }

@@ -13,7 +13,7 @@ namespace Erinn
         /// <summary>
         ///     Id
         /// </summary>
-        [FieldOffset(0)] public readonly ushort Id;
+        [FieldOffset(0)] public readonly uint Id;
 
         /// <summary>
         ///     Token
@@ -26,7 +26,7 @@ namespace Erinn
         /// <param name="id">Id</param>
         /// <param name="token">Token</param>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public NetworkSession(ushort id, in Guid token)
+        public NetworkSession(uint id, in Guid token)
         {
             Id = id;
             Token = token;
@@ -55,7 +55,7 @@ namespace Erinn
         ///     To string
         /// </summary>
         /// <returns>String</returns>
-        public override string ToString() => GetHashCode().ToString();
+        public override string ToString() => $"NetworkSession[{GetHashCode()}]";
 
         /// <summary>
         ///     Get hashCode
