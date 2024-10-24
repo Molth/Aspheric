@@ -601,12 +601,12 @@ namespace Erinn
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private static void Service(object? obj)
         {
-            var serviceParams = (ServiceParams)obj;
-            var handle = serviceParams.Handle;
-            var host = serviceParams.Host;
-            var incomings = serviceParams.Incomings;
-            var commands = serviceParams.Commands;
-            var outgoings = serviceParams.Outgoings;
+            var @params = (ServiceParams)obj;
+            var handle = @params.Handle;
+            var host = @params.Host;
+            var incomings = @params.Incomings;
+            var commands = @params.Commands;
+            var outgoings = @params.Outgoings;
             var options = handle->Options;
             var peerCount = options.PeerCount;
             var @event = new ENetEvent();
@@ -706,10 +706,10 @@ namespace Erinn
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private static void CheckEvents(object? obj)
         {
-            var checkEventsParams = (CheckEventsParams)obj;
-            var handle = checkEventsParams.Handle;
-            var host = checkEventsParams.Host;
-            var incomings = checkEventsParams.Incomings;
+            var @params = (CheckEventsParams)obj;
+            var handle = @params.Handle;
+            var host = @params.Host;
+            var incomings = @params.Incomings;
             var buffer = stackalloc byte[24];
             var stream = new DataStream(buffer, 24);
             var spinWait = new FastSpinWait();
@@ -789,20 +789,20 @@ namespace Erinn
         }
 
         /// <summary>
-        ///     Service
+        ///     Dedicated service
         /// </summary>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private static void DedicatedService(object? obj)
         {
-            var serviceParams = (DedicatedServiceParams)obj;
-            var hostId = serviceParams.Id;
-            var handle = serviceParams.Handle;
-            var host = serviceParams.Host;
-            var incomings = serviceParams.Incomings;
-            var commands = serviceParams.Commands;
-            var outgoings = serviceParams.Outgoings;
+            var @params = (DedicatedServiceParams)obj;
+            var handle = @params.Handle;
+            var host = @params.Host;
+            var incomings = @params.Incomings;
+            var commands = @params.Commands;
+            var outgoings = @params.Outgoings;
             var options = handle->Options;
             var peerCount = options.PeerCount;
+            var sessionOffset = peerCount * @params.Id;
             var @event = new ENetEvent();
             var spinWait = new FastSpinWait();
             while (handle->State == 2)
@@ -829,7 +829,7 @@ namespace Erinn
                             var id = session.Id;
                             if (session.Token != handle->Tokens[id])
                                 continue;
-                            enet_peer_disconnect(&host->peers[id], 0);
+                            enet_peer_disconnect(&host->peers[id % peerCount], 0);
                             continue;
                         case NetworkCommandType.Ping:
                             enet_host_ping(host, &command.Address);
@@ -846,7 +846,7 @@ namespace Erinn
                     if (outgoing.Session.Token == handle->Tokens[id])
                     {
                         var channel = (packet->flags & (uint)ENetPacketFlag.ENET_PACKET_FLAG_RELIABLE) != 0 ? (byte)0 : (byte)1;
-                        if (enet_peer_send(&host->peers[id], channel, packet) == 0)
+                        if (enet_peer_send(&host->peers[id % peerCount], channel, packet) == 0)
                             continue;
                     }
 
@@ -856,7 +856,7 @@ namespace Erinn
                 while (enet_host_service(host, &@event, 0) > 0)
                 {
                     var peer = @event.peer;
-                    var id = peer->incomingPeerID + hostId * peerCount;
+                    var id = sessionOffset + peer->incomingPeerID;
                     switch (@event.type)
                     {
                         case ENetEventType.ENET_EVENT_TYPE_NONE:
@@ -898,15 +898,15 @@ namespace Erinn
         }
 
         /// <summary>
-        ///     Service
+        ///     Dedicated services
         /// </summary>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private static void DedicatedServices(object? obj)
         {
-            var dedicatedServicesParams = (DedicatedServicesParams)obj;
-            var handle = dedicatedServicesParams.Handle;
+            var @params = (DedicatedServicesParams)obj;
+            var handle = @params.Handle;
             var peerCount = handle->Options.PeerCount;
-            var hosts = dedicatedServicesParams.Hosts;
+            var hosts = @params.Hosts;
             var spinWait = new FastSpinWait();
             while (handle->State == 2)
             {
@@ -924,14 +924,9 @@ namespace Erinn
                                 hosts[hostId]->Commands.Enqueue(command);
                             continue;
                         case NetworkCommandType.Disconnect:
-                            var session = command.Session;
-                            hostId = session.Id / peerCount;
+                            hostId = command.Session.Id / peerCount;
                             if (hostId < hosts.Length)
-                            {
-                                command.Session = new NetworkSession(session.Id % peerCount, session.Token);
                                 hosts[hostId]->Commands.Enqueue(command);
-                            }
-
                             continue;
                         default:
                             continue;
@@ -940,11 +935,9 @@ namespace Erinn
 
                 while (handle->Outgoings.TryDequeue(out var outgoing))
                 {
-                    var session = outgoing.Session;
-                    var hostId = session.Id / peerCount;
+                    var hostId = outgoing.Session.Id / peerCount;
                     if (hostId < hosts.Length)
                     {
-                        outgoing = new NetworkPacket(new NetworkSession(session.Id % peerCount, session.Token), outgoing.Payload);
                         hosts[hostId]->Outgoings.Enqueue(outgoing);
                         continue;
                     }
@@ -964,15 +957,15 @@ namespace Erinn
         }
 
         /// <summary>
-        ///     Check events
+        ///     Dedicated check events
         /// </summary>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private static void DedicatedCheckEvents(object? obj)
         {
-            var checkEventsParams = (CheckEventsParams)obj;
-            var handle = checkEventsParams.Handle;
-            var host = checkEventsParams.Host;
-            var incomings = checkEventsParams.Incomings;
+            var @params = (CheckEventsParams)obj;
+            var handle = @params.Handle;
+            var host = @params.Host;
+            var incomings = @params.Incomings;
             var buffer = stackalloc byte[24];
             var stream = new DataStream(buffer, 24);
             var spinWait = new FastSpinWait();
@@ -1228,7 +1221,11 @@ namespace Erinn
         /// </summary>
         /// <returns></returns>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public bool Shutdown() => Interlocked.CompareExchange(ref _handle->State, 0, 2) == 1;
+        public bool Shutdown()
+        {
+            var handle = _handle;
+            return Interlocked.CompareExchange(ref handle->State, 0, 1) == 1 || Interlocked.CompareExchange(ref handle->State, 0, 2) == 2;
+        }
 
         /// <summary>
         ///     Check is connected
