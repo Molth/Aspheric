@@ -575,10 +575,10 @@ namespace Erinn
 
             var dedicatedHosts = new NativeArray<DedicatedHost>(hostCount);
             handle->Tokens = new NativeArray<Guid>(hostCount * peerCount, true);
-            handle->Commands = new NativeConcurrentQueue<NetworkCommand>(1, 2);
-            handle->Outgoings = new NativeConcurrentQueue<NetworkPacket>(1, hostCount);
+            handle->Commands = new NativeConcurrentQueue<NetworkCommand>(1, Math.Max(hostCount / 2, 1));
+            handle->Outgoings = new NativeConcurrentQueue<NetworkPacket>(1, Math.Max(hostCount, 2));
             handle->Options = new NetworkHostOptions(peerCount, pingInterval, timeout, incomingBandwidth, outgoingBandwidth);
-            var incomings = new NativeConcurrentQueue<NetworkEvent>(1, hostCount);
+            var incomings = new NativeConcurrentQueue<NetworkEvent>(1, Math.Max(hostCount, 2));
             for (uint i = 0; i < hostCount; ++i)
             {
                 var commands = new NativeConcurrentQueue<NetworkCommand>(1, 0);
