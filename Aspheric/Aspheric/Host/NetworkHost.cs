@@ -522,7 +522,7 @@ namespace Erinn
         /// <param name="options">Options</param>
         /// <returns>Started</returns>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public SocketError Start(ImmutableArray<ushort> ports, in NetworkHostOptions options) => Start(ports, options.PeerCount, options.PingInterval, options.Timeout, options.IncomingBandwidth, options.OutgoingBandwidth);
+        public SocketError Start(ImmutableHashSet<ushort> ports, in NetworkHostOptions options) => Start(ports, options.PeerCount, options.PingInterval, options.Timeout, options.IncomingBandwidth, options.OutgoingBandwidth);
 
         /// <summary>
         ///     Start
@@ -535,9 +535,9 @@ namespace Erinn
         /// <param name="outgoingBandwidth">Outgoing bandwidth</param>
         /// <returns>Started</returns>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public SocketError Start(ImmutableArray<ushort> ports, ushort peerCount, uint pingInterval = 500, uint timeout = 5000, uint incomingBandwidth = 0, uint outgoingBandwidth = 0)
+        public SocketError Start(ImmutableHashSet<ushort> ports, ushort peerCount, uint pingInterval = 500, uint timeout = 5000, uint incomingBandwidth = 0, uint outgoingBandwidth = 0)
         {
-            var hostCount = ports.Length;
+            var hostCount = ports.Count;
             if (hostCount == 0)
                 return SocketError.Fault;
             var handle = _handle;
@@ -551,16 +551,17 @@ namespace Erinn
 
             for (var i = 1; i < hostCount; ++i)
                 _ = enet_initialize();
+            var id = 0;
             var hosts = stackalloc nint[hostCount];
-            for (var i = 0; i < hostCount; ++i)
+            foreach (var port in ports)
             {
                 ENetAddress address;
                 _ = enet_set_ip(&address, Socket.OSSupportsIPv6 ? "::0" : "0.0.0.0");
-                address.port = ports[i];
+                address.port = port;
                 var host = enet_host_create(&address, peerCount, 2, incomingBandwidth, outgoingBandwidth);
                 if (host == null)
                 {
-                    for (var j = 0; j < i; ++j)
+                    for (var j = 0; j < id; ++j)
                         enet_host_destroy((ENetHost*)hosts[j]);
                     for (var j = 0; j < hostCount; ++j)
                         enet_deinitialize();
@@ -569,7 +570,7 @@ namespace Erinn
                 }
 
                 host->maximumPacketSize = 1392;
-                hosts[i] = (nint)host;
+                hosts[id++] = (nint)host;
             }
 
             var dedicatedHosts = new NativeArray<DedicatedHost>(hostCount);
@@ -1089,12 +1090,12 @@ namespace Erinn
         /// <summary>
         ///     Connect
         /// </summary>
-        /// <param name="dedicatedId">Ddedicated id</param>
+        /// <param name="id">Dedicated id</param>
         /// <param name="ip">IP</param>
         /// <param name="port">Port</param>
         /// <returns>Started</returns>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public bool Connect(uint dedicatedId, string ip, ushort port)
+        public bool Connect(uint id, string ip, ushort port)
         {
             var handle = _handle;
             if (handle->State != 2)
@@ -1105,7 +1106,7 @@ namespace Erinn
             handle->Commands.Enqueue(new NetworkCommand
             {
                 CommandType = NetworkCommandType.Connect,
-                Id = dedicatedId,
+                Id = id,
                 Address = address
             });
             return true;
@@ -1114,11 +1115,11 @@ namespace Erinn
         /// <summary>
         ///     Connect
         /// </summary>
-        /// <param name="dedicatedId">Ddedicated id</param>
+        /// <param name="id">Dedicated id</param>
         /// <param name="address">Address</param>
         /// <returns>Started</returns>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public bool Connect(uint dedicatedId, in ENetAddress address)
+        public bool Connect(uint id, in ENetAddress address)
         {
             var handle = _handle;
             if (handle->State != 2)
@@ -1126,7 +1127,7 @@ namespace Erinn
             handle->Commands.Enqueue(new NetworkCommand
             {
                 CommandType = NetworkCommandType.Connect,
-                Id = dedicatedId,
+                Id = id,
                 Address = address
             });
             return true;
@@ -1175,11 +1176,11 @@ namespace Erinn
         /// <summary>
         ///     Ping
         /// </summary>
-        /// <param name="dedicatedId">Ddedicated id</param>
+        /// <param name="id">Dedicated id</param>
         /// <param name="ip">IP</param>
         /// <param name="port">Port</param>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public bool Ping(uint dedicatedId, string ip, ushort port)
+        public bool Ping(uint id, string ip, ushort port)
         {
             var handle = _handle;
             if (handle->State != 2)
@@ -1190,7 +1191,7 @@ namespace Erinn
             handle->Commands.Enqueue(new NetworkCommand
             {
                 CommandType = NetworkCommandType.Ping,
-                Id = dedicatedId,
+                Id = id,
                 Address = address
             });
             return true;
@@ -1199,10 +1200,10 @@ namespace Erinn
         /// <summary>
         ///     Ping
         /// </summary>
-        /// <param name="dedicatedId">Ddedicated id</param>
+        /// <param name="id">Dedicated id</param>
         /// <param name="address">Address</param>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public bool Ping(uint dedicatedId, in ENetAddress address)
+        public bool Ping(uint id, in ENetAddress address)
         {
             var handle = _handle;
             if (handle->State != 2)
@@ -1210,7 +1211,7 @@ namespace Erinn
             handle->Commands.Enqueue(new NetworkCommand
             {
                 CommandType = NetworkCommandType.Ping,
-                Id = dedicatedId,
+                Id = id,
                 Address = address
             });
             return true;
