@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Diagnostics;
 using System.Reflection;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
@@ -61,9 +62,8 @@ namespace Erinn
         public void AddCommand(uint command, RpcDelegate @delegate)
         {
             var methodInfo = @delegate.Method;
-            var type = methodInfo.DeclaringType;
-            if (!methodInfo.IsStatic || type == null || type.IsDefined(typeof(CompilerGeneratedAttribute), false) || type.Name.Contains("AnonymousType"))
-                return;
+            if (!methodInfo.IsStatic || methodInfo.DeclaringType == null)
+                throw new UnreachableException(nameof(@delegate));
             _commandToAddress[command] = methodInfo.MethodHandle.GetFunctionPointer();
         }
 
@@ -100,7 +100,7 @@ namespace Erinn
         {
             foreach (var methodInfo in type.GetMethods(BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic))
             {
-                var attribute = methodInfo.GetCustomAttribute<RpcHandlerAttribute>();
+                var attribute = methodInfo.GetCustomAttribute<RpcManualAttribute>();
                 if (attribute != null && IsValidRpcDelegate(methodInfo))
                     _commandToAddress[attribute.Command] = methodInfo.MethodHandle.GetFunctionPointer();
             }
@@ -145,7 +145,7 @@ namespace Erinn
         {
             foreach (var methodInfo in type.GetMethods(BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic))
             {
-                var attribute = methodInfo.GetCustomAttribute<RpcHandlerAttribute>();
+                var attribute = methodInfo.GetCustomAttribute<RpcManualAttribute>();
                 if (attribute != null && IsValidRpcDelegate(methodInfo))
                     _commandToAddress.Remove(attribute.Command);
             }

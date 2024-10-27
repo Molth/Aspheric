@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Diagnostics;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 
@@ -21,6 +22,18 @@ namespace Erinn
         /// <param name="capacity">Capacity</param>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public NetworkOnDisconnectedEvent(int capacity) => _events = new NativeHashSet<nint>(capacity);
+
+        /// <summary>
+        ///     Add
+        /// </summary>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public void Add(OnDisconnectedDelegate @delegate)
+        {
+            var methodInfo = @delegate.Method;
+            if (!methodInfo.IsStatic || methodInfo.DeclaringType == null)
+                throw new UnreachableException(nameof(@delegate));
+            _events.Add(methodInfo.MethodHandle.GetFunctionPointer());
+        }
 
         /// <summary>
         ///     Add

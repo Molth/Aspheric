@@ -538,8 +538,8 @@ namespace Erinn
         public SocketError Start(ImmutableHashSet<ushort> ports, ushort peerCount, uint pingInterval = 500, uint timeout = 5000, uint incomingBandwidth = 0, uint outgoingBandwidth = 0)
         {
             var hostCount = ports.Count;
-            if (hostCount == 0)
-                return SocketError.Fault;
+            if (hostCount <= 0)
+                return SocketError.InvalidArgument;
             var handle = _handle;
             if (handle->Threads != 0 || Interlocked.CompareExchange(ref handle->State, 2, 0) != 0)
                 return SocketError.InProgress;

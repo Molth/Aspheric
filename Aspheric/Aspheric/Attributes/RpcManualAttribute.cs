@@ -3,10 +3,10 @@
 namespace Erinn
 {
     /// <summary>
-    ///     Rpc handler attribute
+    ///     Rpc manual attribute
     /// </summary>
     [AttributeUsage(AttributeTargets.Method)]
-    public sealed class RpcHandlerAttribute : Attribute
+    public sealed class RpcManualAttribute : Attribute
     {
         /// <summary>
         ///     Command
@@ -17,6 +17,6 @@ namespace Erinn
         ///     Structure
         /// </summary>
         /// <param name="command">Command</param>
-        public RpcHandlerAttribute(uint command) => Command = command;
+        public RpcManualAttribute(uint command) => Command = command;
     }
 }

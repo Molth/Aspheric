@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Diagnostics;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 
@@ -26,13 +27,25 @@ namespace Erinn
         ///     Add
         /// </summary>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public void Add(delegate* managed<in NetworkPeer, in NetworkPacketFlag, in byte*, in int, in Exception, void> @event) => _events.Add((nint)@event);
+        public void Add(OnErroredDelegate @delegate)
+        {
+            var methodInfo = @delegate.Method;
+            if (!methodInfo.IsStatic || methodInfo.DeclaringType == null)
+                throw new UnreachableException(nameof(@delegate));
+            _events.Add(methodInfo.MethodHandle.GetFunctionPointer());
+        }
+
+        /// <summary>
+        ///     Add
+        /// </summary>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public void Add(delegate* managed<in NetworkPeer, in NetworkPacketFlag, in Span<byte>, in Exception, void> @event) => _events.Add((nint)@event);
 
         /// <summary>
         ///     Remove
         /// </summary>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public void Remove(delegate* managed<in NetworkPeer, in NetworkPacketFlag, in byte*, in int, in Exception, void> @event) => _events.Remove((nint)@event);
+        public void Remove(delegate* managed<in NetworkPeer, in NetworkPacketFlag, in Span<byte>, in Exception, void> @event) => _events.Remove((nint)@event);
 
         /// <summary>
         ///     Add
@@ -73,10 +86,11 @@ namespace Erinn
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void Invoke(in NetworkPeer peer, in NetworkPacketFlag flags, in byte* buffer, in int length, in Exception e)
         {
+            var span = MemoryMarshal.CreateSpan(ref *buffer, length);
             foreach (var value in _events)
             {
-                var @event = (delegate* managed<in NetworkPeer, in NetworkPacketFlag, in byte*, in int, in Exception, void>)value;
-                @event(peer, flags, buffer, length, e);
+                var @event = (delegate* managed<in NetworkPeer, in NetworkPacketFlag, in Span<byte>, in Exception, void>)value;
+                @event(peer, flags, span, e);
             }
         }
 

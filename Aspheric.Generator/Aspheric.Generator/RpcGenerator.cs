@@ -11,25 +11,34 @@ using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Microsoft.CodeAnalysis.Text;
 
 #pragma warning disable RS1041
+#pragma warning disable CS8602
+#pragma warning disable CS8604
 #pragma warning disable CS8605
 
-namespace Erinn
+// ReSharper disable ConvertIfStatementToSwitchStatement
+
+namespace Erinn.Roslyn
 {
-    [Generator]
+    [Generator(LanguageNames.CSharp)]
     internal sealed class RpcIncrementalSourceGenerator : IIncrementalGenerator
     {
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void Initialize(IncrementalGeneratorInitializationContext context)
         {
-            var methodsWithAttribute = context.SyntaxProvider.CreateSyntaxProvider(static (node, _) => node is MethodDeclarationSyntax method && IsAnnotatedWithRpcAttribute(method), static (ctx, _) => GetMethodDeclarationForSourceGen(ctx)).Where(t => t.Found).Select((t, _) => (t.Method, t.DeclaredAccessibility));
-            context.RegisterSourceOutput(context.CompilationProvider.Combine(methodsWithAttribute.Collect()), static (ctx, t) => GenerateCode(ctx, t.Left, t.Right));
+            var rpcMethods = context.SyntaxProvider.CreateSyntaxProvider(static (node, _) => node is MethodDeclarationSyntax method && IsAnnotatedWithRpcAttribute(method), static (ctx, _) => GetRpcMethodDeclarationForSourceGen(ctx)).Where(t => t.Found).Select((t, _) => (t.Method, t.Data));
+            context.RegisterImplementationSourceOutput(context.CompilationProvider.Combine(rpcMethods.Collect()), static (ctx, t) => GenerateCode(ctx, t.Item1, t.Item2));
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private static bool IsAnnotatedWithRpcAttribute(MethodDeclarationSyntax method) => method.AttributeLists.Any(s => s.Attributes.Any(a => a.Name.ToString() == "Rpc"));
+        private static bool IsAnnotatedWithRpcAttribute(MethodDeclarationSyntax method)
+        {
+            var hasRpc = method.AttributeLists.Any(s => s.Attributes.Any(a => a.Name.ToString() == "Rpc"));
+            var hasRpcManual = method.AttributeLists.Any(s => s.Attributes.Any(a => a.Name.ToString() == "RpcManual"));
+            return (hasRpc || hasRpcManual) && !(hasRpc && hasRpcManual);
+        }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private static (MethodDeclarationSyntax Method, Accessibility DeclaredAccessibility, bool Found) GetMethodDeclarationForSourceGen(GeneratorSyntaxContext context)
+        private static (MethodDeclarationSyntax Method, RpcData Data, bool Found) GetRpcMethodDeclarationForSourceGen(GeneratorSyntaxContext context)
         {
             var methodDeclarationSyntax = (MethodDeclarationSyntax)context.Node;
             for (var i = 0; i < methodDeclarationSyntax.AttributeLists.Count; ++i)
@@ -41,41 +50,121 @@ namespace Erinn
                     if (context.SemanticModel.GetSymbolInfo(attributeSyntax).Symbol is not IMethodSymbol attributeSymbol)
                         continue;
                     var attributeName = attributeSymbol.ContainingType.ToDisplayString();
-                    if (attributeName == "Erinn.RpcAttribute" && attributeSymbol.ContainingAssembly.Name == "Aspheric")
+                    if (attributeSymbol.ContainingAssembly.Name == "Aspheric")
                     {
-                        var declaredAccessibility = 0;
-                        if (attributeSyntax.ArgumentList?.Arguments.Count == 1)
-                            declaredAccessibility = (int)context.SemanticModel.GetConstantValue(attributeSyntax.ArgumentList.Arguments[0].Expression).Value;
-                        return (methodDeclarationSyntax, (Accessibility)declaredAccessibility, true);
+                        if (attributeName == "Erinn.RpcAttribute")
+                        {
+                            var declaredAccessibility = 0;
+                            if (attributeSyntax.ArgumentList?.Arguments.Count == 1)
+                                declaredAccessibility = int.Parse(context.SemanticModel.GetConstantValue(attributeSyntax.ArgumentList.Arguments[0].Expression).Value.ToString());
+                            return (methodDeclarationSyntax, new RpcData { IsManual = false, DeclaredAccessibility = (Accessibility)declaredAccessibility }, true);
+                        }
+
+                        if (attributeName == "Erinn.RpcManualAttribute")
+                        {
+                            uint command = 0;
+                            if (attributeSyntax.ArgumentList?.Arguments.Count == 1)
+                                command = uint.Parse(context.SemanticModel.GetConstantValue(attributeSyntax.ArgumentList.Arguments[0].Expression).Value.ToString());
+                            return (methodDeclarationSyntax, new RpcData { IsManual = true, Command = command }, true);
+                        }
                     }
                 }
             }
 
-            return (methodDeclarationSyntax, Accessibility.NotApplicable, false);
+            return (methodDeclarationSyntax, new RpcData(), false);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private static void GenerateCode(SourceProductionContext context, Compilation compilation, ImmutableArray<(MethodDeclarationSyntax, Accessibility)> methodDeclarations)
+        private static void GenerateCode(SourceProductionContext context, Compilation compilation, ImmutableArray<(MethodDeclarationSyntax, RpcData)> methodDeclarations)
         {
+            if (!((CSharpCompilation)compilation).Options.AllowUnsafe)
+            {
+                ReportDiagnostic(context, "RPC001", "UnsafeBlocks Not Allowed", $"Unsafe blocks is not allowed in this project: [{compilation.Assembly.ToDisplayString()}].", "Erinn.Roslyn", DiagnosticSeverity.Error, Location.None);
+                return;
+            }
+
             var sb = new StringBuilder(1024);
-            var classCodeMap = new Dictionary<string, (StringBuilder CodeBuilder, bool HasNamespace, List<uint> Commands, List<string> Addresses)>();
+            var classCodeMap = new Dictionary<string, (StringBuilder CodeBuilder, bool HasNamespace, List<uint> Commands, List<string> Addresses, List<(string, uint)>ManualCommands)>();
             var rpcClasses = new List<(string FullName, bool HasNamespace)>();
             var rpcMethodCount = 0;
             for (var i = 0; i < methodDeclarations.Length; ++i)
             {
-                var methodDeclarationSyntax = methodDeclarations[i].Item1;
-                var declaredAccessibility = methodDeclarations[i].Item2;
+                var (methodDeclarationSyntax, data) = methodDeclarations[i];
                 var semanticModel = compilation.GetSemanticModel(methodDeclarationSyntax.SyntaxTree);
                 var methodSymbol = semanticModel.GetDeclaredSymbol(methodDeclarationSyntax);
-                if (methodSymbol is null || !IsValidType(methodSymbol) || IsNestedType(methodSymbol.ContainingType) || !IsPartialType(methodSymbol.ContainingType))
-                    continue;
-                var parameters = methodSymbol.Parameters;
-                if (parameters.Length < 2 || parameters[0].Type.ToDisplayString() != "Erinn.NetworkPeer" || parameters[0].Type.ContainingAssembly.Name != "Aspheric" || parameters[1].Type.ToDisplayString() != "Erinn.NetworkPacketFlag" || parameters[1].Type.ContainingAssembly.Name != "Aspheric")
-                    continue;
-                for (var j = 0; j < parameters.Length; ++j)
+                if (methodSymbol == null)
                 {
-                    if (!IsValidRefKind(parameters[j]))
+                    ReportDiagnostic(context, "RPC002", "Method Symbol Not Found", "The method symbol is null, which means the method could not be resolved.", "Erinn.Roslyn", DiagnosticSeverity.Error, methodDeclarationSyntax.GetLocation());
+                    continue;
+                }
+
+                if (!methodSymbol.IsDefinition)
+                {
+                    ReportDiagnostic(context, "RPC003", "Method Not Defined", "The method must be defined.", "Erinn.Roslyn", DiagnosticSeverity.Error, methodDeclarationSyntax.GetLocation());
+                    continue;
+                }
+
+                if (!methodSymbol.IsStatic)
+                {
+                    ReportDiagnostic(context, "RPC004", "Method Not Static", "The method must be a static method.", "Erinn.Roslyn", DiagnosticSeverity.Error, methodDeclarationSyntax.GetLocation());
+                    continue;
+                }
+
+                if (methodSymbol.ReturnType.SpecialType != SpecialType.System_Void)
+                {
+                    ReportDiagnostic(context, "RPC005", "Return Type Must Be Void", "The method must have a void return type.", "Erinn.Roslyn", DiagnosticSeverity.Error, methodDeclarationSyntax.GetLocation());
+                    continue;
+                }
+
+                if (methodSymbol.ContainingType.TypeKind is not (TypeKind.Class or TypeKind.Struct))
+                {
+                    ReportDiagnostic(context, "RPC006", "Invalid Containing Type", "The method must be defined in a class or struct.", "Erinn.Roslyn", DiagnosticSeverity.Error, methodDeclarationSyntax.GetLocation());
+                    continue;
+                }
+
+                var parameters = methodSymbol.Parameters;
+                if (!data.IsManual)
+                {
+                    if (methodSymbol.ContainingType.ContainingType != null)
+                    {
+                        ReportDiagnostic(context, "RPC007", "Method in Nested Type", "The method cannot be defined within a nested type.", "Erinn.Roslyn", DiagnosticSeverity.Error, methodDeclarationSyntax.GetLocation());
+                        continue;
+                    }
+
+                    if (!IsPartialType(methodSymbol.ContainingType))
+                    {
+                        ReportDiagnostic(context, "RPC008", "Type Not Partial", "The method must be defined in a partial type.", "Erinn.Roslyn", DiagnosticSeverity.Error, methodDeclarationSyntax.GetLocation());
+                        continue;
+                    }
+
+                    if (parameters.Length < 2 || parameters[0].Type.ToDisplayString() != "Erinn.NetworkPeer" || parameters[0].Type.ContainingAssembly.Name != "Aspheric" || parameters[1].Type.ToDisplayString() != "Erinn.NetworkPacketFlag" || parameters[1].Type.ContainingAssembly.Name != "Aspheric")
+                    {
+                        ReportDiagnostic(context, "RPC009", "Invalid Method Parameters", "The first two parameters must be 'Erinn.NetworkPeer' and 'Erinn.NetworkPacketFlag' from the 'Aspheric' assembly.", "Erinn.Roslyn", DiagnosticSeverity.Error, methodDeclarationSyntax.GetLocation());
+                        continue;
+                    }
+
+                    for (var j = 0; j < parameters.Length; ++j)
+                    {
+                        var parameter = parameters[j];
+                        if (!IsValidRefKind(parameter))
+                        {
+                            Location? location = null;
+                            if (parameter.Locations != null)
+                                location = parameter.Locations.FirstOrDefault();
+                            if (location == null)
+                                location = methodDeclarationSyntax.GetLocation();
+                            ReportDiagnostic(context, "RPC010", "Invalid RefKind", $"Parameter '{parameter.Name}' must have the 'in' modifier and cannot be pointer types.", "Erinn.Roslyn", DiagnosticSeverity.Error, location);
+                            goto next;
+                        }
+                    }
+                }
+                else
+                {
+                    if (!(parameters.Length == 3 && parameters[0].RefKind == RefKind.In && parameters[0].Type.ToDisplayString() == "Erinn.NetworkPeer" && parameters[0].Type.ContainingAssembly.Name == "Aspheric" && parameters[1].RefKind == RefKind.In && parameters[1].Type.ToDisplayString() == "Erinn.NetworkPacketFlag" && parameters[1].Type.ContainingAssembly.Name == "Aspheric" && parameters[2].RefKind == RefKind.In && parameters[2].Type.ToDisplayString() == "Erinn.DataStream" && parameters[2].Type.ContainingAssembly.Name == "Aspheric"))
+                    {
+                        ReportDiagnostic(context, "RPC011", "Invalid Method Parameters", "The three parameters must be 'Erinn.NetworkPeer' and 'Erinn.NetworkPacketFlag' 'Erinn.DataStream' and from the 'Aspheric' assembly.", "Erinn.Roslyn", DiagnosticSeverity.Error, methodDeclarationSyntax.GetLocation());
                         goto next;
+                    }
                 }
 
                 goto label;
@@ -88,7 +177,7 @@ namespace Erinn
                 var hasNamespace = HasNamespace(methodSymbol);
                 if (!classCodeMap.TryGetValue(fullName, out var value))
                 {
-                    value = (new StringBuilder(), HasNamespace: hasNamespace, [], []);
+                    value = (new StringBuilder(), HasNamespace: hasNamespace, [], [], []);
                     classCodeMap[fullName] = value;
                     var type = methodSymbol.ContainingType.TypeKind == TypeKind.Class ? "class" : "struct";
                     var className = methodSymbol.ContainingType.Name;
@@ -113,14 +202,21 @@ namespace Erinn
                 }
 
                 rpcMethodCount++;
-                var partialMethodCode = GeneratePartialMethodCode(sb, hasNamespace, fullName, methodName, declaredAccessibility, parameters, value.Addresses, out var command);
-                value.Commands.Add(command);
-                value.CodeBuilder.AppendLine(partialMethodCode);
+                if (!data.IsManual)
+                {
+                    var partialMethodCode = GenerateRpcMethodCode(sb, hasNamespace, fullName, methodName, data.DeclaredAccessibility, parameters, value.Addresses, out var command);
+                    value.Commands.Add(command);
+                    value.CodeBuilder.AppendLine(partialMethodCode);
+                }
+                else
+                {
+                    value.ManualCommands.Add((methodName, data.Command));
+                }
             }
 
-            foreach (var (fullName, (codeBuilder, hasNamespace, commands, addresses)) in classCodeMap)
+            foreach (var (fullName, (codeBuilder, hasNamespace, commands, addresses, manualCommands)) in classCodeMap)
             {
-                codeBuilder.Append(GenerateRpcInitializeMethod(sb, hasNamespace, commands, addresses));
+                codeBuilder.Append(GenerateRpcInitializeMethod(sb, hasNamespace, commands, addresses, manualCommands));
                 if (hasNamespace)
                 {
                     codeBuilder.AppendLine("\t}");
@@ -139,13 +235,11 @@ namespace Erinn
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private static bool IsValidRefKind(IParameterSymbol parameterSymbol) => parameterSymbol.GetType() != typeof(IPointerTypeSymbol) && parameterSymbol.RefKind == RefKind.In && !parameterSymbol.Type.IsRefLikeType;
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private static bool IsValidType(IMethodSymbol methodSymbol) => methodSymbol.IsDefinition && methodSymbol.IsStatic && methodSymbol.ReturnType.SpecialType == SpecialType.System_Void && methodSymbol.ContainingType.TypeKind is TypeKind.Class or TypeKind.Struct;
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private static bool IsNestedType(INamedTypeSymbol typeSymbol) => typeSymbol.ContainingType != null;
+        private static void ReportDiagnostic(SourceProductionContext context, string id, string title, string messageFormat, string category, DiagnosticSeverity defaultSeverity, Location location)
+        {
+            var diagnostic = Diagnostic.Create(new DiagnosticDescriptor(id, title, messageFormat, category, defaultSeverity, true), location);
+            context.ReportDiagnostic(diagnostic);
+        }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private static bool IsPartialType(INamedTypeSymbol typeSymbol)
@@ -160,6 +254,9 @@ namespace Erinn
 
             return false;
         }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private static bool IsValidRefKind(IParameterSymbol parameterSymbol) => parameterSymbol.RefKind == RefKind.In && !parameterSymbol.Type.IsRefLikeType;
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private static bool HasNamespace(IMethodSymbol methodSymbol)
@@ -220,7 +317,7 @@ namespace Erinn
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private static unsafe string GeneratePartialMethodCode(StringBuilder sb, bool hasNamespace, string fullName, string methodName, Accessibility declaredAccessibility, ImmutableArray<IParameterSymbol> parameters, List<string> addresses, out uint command)
+        private static unsafe string GenerateRpcMethodCode(StringBuilder sb, bool hasNamespace, string fullName, string methodName, Accessibility declaredAccessibility, ImmutableArray<IParameterSymbol> parameters, List<string> addresses, out uint command)
         {
             var tab = hasNamespace ? "\t" : "";
             sb.Clear();
@@ -341,7 +438,7 @@ namespace Erinn
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private static string GenerateRpcInitializeMethod(StringBuilder sb, bool hasNamespace, List<uint> commands, List<string> addresses)
+        private static string GenerateRpcInitializeMethod(StringBuilder sb, bool hasNamespace, List<uint> commands, List<string> addresses, List<(string, uint)> manualCommands)
         {
             var tab = hasNamespace ? "\t" : "";
             sb.Clear();
@@ -359,6 +456,13 @@ namespace Erinn
                 sb.AppendLine($"{tab}\t\trpcMethods.AddAddress((nint)address{commands[i]}, {commands[i]});");
             }
 
+            for (var i = 0; i < manualCommands.Count; ++i)
+            {
+                var (methodName, command) = manualCommands[i];
+                sb.AppendLine($"{tab}\t\taddress = &{methodName};");
+                sb.AppendLine($"{tab}\t\trpcMethods.AddCommand({command}, address);");
+            }
+
             sb.AppendLine($"{tab}\t}}");
             sb.AppendLine();
             sb.AppendLine($"{tab}\t[_RpcDeinitialize({commands.Count})]");
@@ -371,6 +475,12 @@ namespace Erinn
                 sb.AppendLine($"{tab}\t\trpcMethods.RemoveCommand({command});");
                 sb.AppendLine($"{tab}\t\t{addresses[i]}");
                 sb.AppendLine($"{tab}\t\trpcMethods.RemoveAddress((nint)address{commands[i]});");
+            }
+
+            for (var i = 0; i < manualCommands.Count; ++i)
+            {
+                var (_, command) = manualCommands[i];
+                sb.AppendLine($"{tab}\t\trpcMethods.RemoveCommand({command});");
             }
 
             sb.AppendLine($"{tab}\t}}");
@@ -422,6 +532,14 @@ namespace Erinn
             sb.AppendLine("\t}");
             sb.Append('}');
             context.AddSource($"{name}.g.cs", SourceText.From(sb.ToString(), Encoding.UTF8));
+        }
+
+        [StructLayout(LayoutKind.Explicit)]
+        private struct RpcData
+        {
+            [FieldOffset(0)] public bool IsManual;
+            [FieldOffset(4)] public uint Command;
+            [FieldOffset(4)] public Accessibility DeclaredAccessibility;
         }
     }
 }
