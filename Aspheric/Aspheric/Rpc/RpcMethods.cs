@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Diagnostics;
+using System.Linq;
 using System.Reflection;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
@@ -84,7 +85,7 @@ namespace Erinn
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void AddCommands(Assembly assembly)
         {
-            var types = assembly.GetTypes();
+            var types = assembly.GetTypes().Where(t => (t.IsClass || t.IsValueType) && !t.IsNested);
             foreach (var type in types)
             {
                 if (type.GetCustomAttribute<RpcServiceAttribute>() != null)
@@ -129,7 +130,7 @@ namespace Erinn
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void RemoveCommands(Assembly assembly)
         {
-            var types = assembly.GetTypes();
+            var types = assembly.GetTypes().Where(t => (t.IsClass || t.IsValueType) && !t.IsNested);
             foreach (var type in types)
             {
                 if (type.GetCustomAttribute<RpcServiceAttribute>() != null)
