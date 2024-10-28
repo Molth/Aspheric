@@ -14,7 +14,7 @@
 
     <ItemGroup>
       <ProjectReference Include="..\Aspheric\Aspheric.csproj"/>
-      <ProjectReference Include="..\Aspheric.Generator\Aspheric.Generator.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false"/>
+      <ProjectReference Include="..\Aspheric.Roslyn\Aspheric.Roslyn.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
     </ItemGroup>
 
 </Project>

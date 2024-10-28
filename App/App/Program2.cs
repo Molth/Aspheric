@@ -91,10 +91,7 @@ namespace Erinn
             }
         }
 
-        private static void TestData(in NetworkPeer peer, in NetworkPacketFlag flags, in Span<byte> buffer)
-        {
-            Console.WriteLine(peer.Session.Id + " " + Encoding.UTF8.GetString(buffer));
-        }
+        private static void TestData(in NetworkPeer peer, in NetworkPacketFlag flags, in Span<byte> buffer) => Console.WriteLine(peer.Session.Id + " " + Encoding.UTF8.GetString(buffer));
 
         private static void OnConnected(in NetworkPeer peer)
         {

@@ -24,15 +24,23 @@ namespace Erinn
             Console.WriteLine(message);
         }
 
-        [RpcManual(1)]
-        public static void Test5(in NetworkPeer peer, in NetworkPacketFlag flags, in DataStream stream)
+        [RpcManual(100)]
+        public static extern void Test5(in NetworkPeer peer, in NetworkPacketFlag flags, in DataStream stream);
+
+        [Rpc(RpcAccessibility.Public)]
+        private static void Test6(in NetworkPeer peer, in NetworkPacketFlag flags, in string message)
         {
-            var message = stream.Read<string>();
             Console.WriteLine(message);
         }
 
         [Rpc(RpcAccessibility.Public)]
-        private static void Test6(in NetworkPeer peer, in NetworkPacketFlag flags, in string message)
+        private static void Test7(in NetworkPeer peer, in NetworkPacketFlag flags, in string message)
+        {
+            Console.WriteLine(message);
+        }
+
+        [Rpc(RpcAccessibility.Public)]
+        private static void Test8(in NetworkPeer peer, in NetworkPacketFlag flags, in string message)
         {
             Console.WriteLine(message);
         }

@@ -2,7 +2,7 @@
 Microsoft Visual Studio Solution File, Format Version 12.00
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Aspheric", "Aspheric\Aspheric.csproj", "{E146C82E-1AC6-4C88-82BF-10840DC6E57D}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Aspheric.Generator", "Aspheric.Generator\Aspheric.Generator.csproj", "{060866DE-8DEA-4168-84EA-DDB22AE97DE8}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Aspheric.Roslyn", "Aspheric.Roslyn\Aspheric.Roslyn.csproj", "{060866DE-8DEA-4168-84EA-DDB22AE97DE8}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ENet", "ENet\ENet.csproj", "{E3422A94-163C-4B0D-A25A-7E7D7DE94DE8}"
 EndProject
