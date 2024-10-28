@@ -79,15 +79,15 @@ namespace Erinn.Roslyn
                 return;
             }
 
+            if (methodSymbol.ContainingType.ContainingType != null)
+            {
+                ReportDiagnostic(context, methodSymbol, RPC007);
+                return;
+            }
+
             ImmutableArray<IParameterSymbol> parameters;
             if (state == RpcState.Rpc)
             {
-                if (methodSymbol.ContainingType.ContainingType != null)
-                {
-                    ReportDiagnostic(context, methodSymbol, RPC007);
-                    return;
-                }
-
                 if (!RpcHelpers.IsPartialType(methodSymbol.ContainingType))
                 {
                     ReportDiagnostic(context, methodSymbol, RPC008);

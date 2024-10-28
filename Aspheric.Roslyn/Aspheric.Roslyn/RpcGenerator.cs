@@ -125,15 +125,15 @@ namespace Erinn.Roslyn
                     continue;
                 }
 
+                if (methodSymbol.ContainingType.ContainingType != null)
+                {
+                    ReportDiagnostic(context, "RPC007", "Method in Nested Type", "The method cannot be defined within a nested type.", "Erinn.Roslyn", DiagnosticSeverity.Error, methodDeclarationSyntax.GetLocation());
+                    continue;
+                }
+
                 ImmutableArray<IParameterSymbol> parameters;
                 if (data.State == RpcState.Rpc)
                 {
-                    if (methodSymbol.ContainingType.ContainingType != null)
-                    {
-                        ReportDiagnostic(context, "RPC007", "Method in Nested Type", "The method cannot be defined within a nested type.", "Erinn.Roslyn", DiagnosticSeverity.Error, methodDeclarationSyntax.GetLocation());
-                        continue;
-                    }
-
                     if (!RpcHelpers.IsPartialType(methodSymbol.ContainingType))
                     {
                         ReportDiagnostic(context, "RPC008", "Type Not Partial", "The method must be defined in a partial type.", "Erinn.Roslyn", DiagnosticSeverity.Error, methodDeclarationSyntax.GetLocation());
