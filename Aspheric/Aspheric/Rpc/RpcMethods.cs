@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Diagnostics;
-using System.Linq;
 using System.Reflection;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
@@ -63,7 +62,7 @@ namespace Erinn
         public void AddCommand(uint command, RpcDelegate @delegate)
         {
             var methodInfo = @delegate.Method;
-            if (!methodInfo.IsStatic || methodInfo.DeclaringType == null)
+            if (!methodInfo.IsStatic || methodInfo.DeclaringType == null || methodInfo.DeclaringType.IsNested)
                 throw new UnreachableException(nameof(@delegate));
             _commandToAddress[command] = methodInfo.MethodHandle.GetFunctionPointer();
         }
@@ -85,7 +84,7 @@ namespace Erinn
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void AddCommands(Assembly assembly)
         {
-            var types = assembly.GetTypes().Where(t => (t.IsClass || t.IsValueType) && !t.IsNested);
+            var types = assembly.GetTypes();
             foreach (var type in types)
             {
                 if (type.GetCustomAttribute<RpcServiceAttribute>() != null)
@@ -99,10 +98,12 @@ namespace Erinn
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void AddCommands(Type type)
         {
+            if (!((type.IsClass || type.IsValueType) && !type.IsNested))
+                return;
             foreach (var methodInfo in type.GetMethods(BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic))
             {
                 var attribute = methodInfo.GetCustomAttribute<RpcManualAttribute>();
-                if (attribute != null && IsValidRpcDelegate(methodInfo))
+                if (attribute != null && IsValid(methodInfo))
                     _commandToAddress[attribute.Command] = methodInfo.MethodHandle.GetFunctionPointer();
             }
         }
@@ -130,7 +131,7 @@ namespace Erinn
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void RemoveCommands(Assembly assembly)
         {
-            var types = assembly.GetTypes().Where(t => (t.IsClass || t.IsValueType) && !t.IsNested);
+            var types = assembly.GetTypes();
             foreach (var type in types)
             {
                 if (type.GetCustomAttribute<RpcServiceAttribute>() != null)
@@ -144,10 +145,12 @@ namespace Erinn
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void RemoveCommands(Type type)
         {
+            if (!((type.IsClass || type.IsValueType) && !type.IsNested))
+                return;
             foreach (var methodInfo in type.GetMethods(BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic))
             {
                 var attribute = methodInfo.GetCustomAttribute<RpcManualAttribute>();
-                if (attribute != null && IsValidRpcDelegate(methodInfo))
+                if (attribute != null && IsValid(methodInfo))
                     _commandToAddress.Remove(attribute.Command);
             }
         }
@@ -165,10 +168,10 @@ namespace Erinn
         public bool TryGetCommand(nint address, out uint command) => _addressToCommand.TryGetValue(address, out command);
 
         /// <summary>
-        ///     Check is valid rpc delegate
+        ///     Check is valid
         /// </summary>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private static bool IsValidRpcDelegate(MethodInfo methodInfo)
+        private static bool IsValid(MethodInfo methodInfo)
         {
             if (methodInfo.ReturnType != typeof(void))
                 return false;

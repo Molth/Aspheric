@@ -16,7 +16,7 @@ namespace Erinn
 
         public static void Test()
         {
-            var rpcMethods = new RpcMethods(_RpcService_App.RPC_METHOD_COUNT);
+            var rpcMethods = new RpcMethods(0);
             var onConnected = new NetworkOnConnectedEvent(0);
             var onDisconnected = new NetworkOnDisconnectedEvent(0);
             var onErrored = new NetworkOnErroredEvent(0);

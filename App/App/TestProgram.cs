@@ -2,7 +2,7 @@
 
 namespace Erinn
 {
-    [RpcService]
+    [RpcService(RpcServiceTarget.All)]
     public sealed partial class TestProgram
     {
         [Rpc(RpcAccessibility.Public)]
@@ -43,6 +43,46 @@ namespace Erinn
         private static void Test8(in NetworkPeer peer, in NetworkPacketFlag flags, in string message)
         {
             Console.WriteLine(message);
+        }
+
+        [OnErrored]
+        private static void OnErrored(in NetworkPeer peer, in NetworkPacketFlag flags, in Span<byte> buffer, in Exception e)
+        {
+        }
+
+        [OnConnected]
+        private static void OnConnected(in NetworkPeer peer)
+        {
+        }
+
+        [OnConnected]
+        private static void OnConnected2(in NetworkPeer peer)
+        {
+        }
+
+        [OnConnected]
+        private static void OnConnected4(in NetworkPeer peer)
+        {
+        }
+
+        [OnDisconnected]
+        private static void OnDisconnected(in NetworkPeer peer)
+        {
+        }
+
+        [OnReceived]
+        private static void TestData(in NetworkPeer peer, in NetworkPacketFlag flags, in Span<byte> buffer)
+        {
+        }
+
+        [OnReceived]
+        private static void TestData2(in NetworkPeer peer, in NetworkPacketFlag flags, in Span<byte> buffer)
+        {
+        }
+
+        [OnReceived]
+        private static void TestData3(in NetworkPeer peer, in NetworkPacketFlag flags, in Span<byte> buffer)
+        {
         }
     }
 }

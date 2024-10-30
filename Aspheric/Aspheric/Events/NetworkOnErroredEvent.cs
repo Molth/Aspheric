@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Diagnostics;
+using System.Reflection;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 
@@ -30,9 +31,50 @@ namespace Erinn
         public void Add(OnErroredDelegate @delegate)
         {
             var methodInfo = @delegate.Method;
-            if (!methodInfo.IsStatic || methodInfo.DeclaringType == null)
+            if (!methodInfo.IsStatic || methodInfo.DeclaringType == null || methodInfo.DeclaringType.IsNested)
                 throw new UnreachableException(nameof(@delegate));
             _events.Add(methodInfo.MethodHandle.GetFunctionPointer());
+        }
+
+        /// <summary>
+        ///     Adds
+        /// </summary>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public void Adds()
+        {
+            var assemblies = AppDomain.CurrentDomain.GetAssemblies();
+            foreach (var assembly in assemblies)
+                Adds(assembly);
+        }
+
+        /// <summary>
+        ///     Adds
+        /// </summary>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public void Adds(Assembly assembly)
+        {
+            var types = assembly.GetTypes();
+            foreach (var type in types)
+            {
+                if (type.GetCustomAttribute<RpcServiceAttribute>() != null)
+                    Adds(type);
+            }
+        }
+
+        /// <summary>
+        ///     Adds
+        /// </summary>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public void Adds(Type type)
+        {
+            if (!((type.IsClass || type.IsValueType) && !type.IsNested))
+                return;
+            foreach (var methodInfo in type.GetMethods(BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic))
+            {
+                var attribute = methodInfo.GetCustomAttribute<OnErroredAttribute>();
+                if (attribute != null && IsValid(methodInfo))
+                    _events.Add(methodInfo.MethodHandle.GetFunctionPointer());
+            }
         }
 
         /// <summary>
@@ -40,6 +82,47 @@ namespace Erinn
         /// </summary>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void Add(delegate* managed<in NetworkPeer, in NetworkPacketFlag, in Span<byte>, in Exception, void> @event) => _events.Add((nint)@event);
+
+        /// <summary>
+        ///     Removes
+        /// </summary>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public void Removes()
+        {
+            var assemblies = AppDomain.CurrentDomain.GetAssemblies();
+            foreach (var assembly in assemblies)
+                Removes(assembly);
+        }
+
+        /// <summary>
+        ///     Removes
+        /// </summary>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public void Removes(Assembly assembly)
+        {
+            var types = assembly.GetTypes();
+            foreach (var type in types)
+            {
+                if (type.GetCustomAttribute<RpcServiceAttribute>() != null)
+                    Removes(type);
+            }
+        }
+
+        /// <summary>
+        ///     Removes
+        /// </summary>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public void Removes(Type type)
+        {
+            if (!((type.IsClass || type.IsValueType) && !type.IsNested))
+                return;
+            foreach (var methodInfo in type.GetMethods(BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic))
+            {
+                var attribute = methodInfo.GetCustomAttribute<OnErroredAttribute>();
+                if (attribute != null && IsValid(methodInfo))
+                    _events.Remove(methodInfo.MethodHandle.GetFunctionPointer());
+            }
+        }
 
         /// <summary>
         ///     Remove
@@ -92,6 +175,18 @@ namespace Erinn
                 var @event = (delegate* managed<in NetworkPeer, in NetworkPacketFlag, in Span<byte>, in Exception, void>)value;
                 @event(peer, flags, span, e);
             }
+        }
+
+        /// <summary>
+        ///     Check is valid
+        /// </summary>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private static bool IsValid(MethodInfo methodInfo)
+        {
+            if (methodInfo.ReturnType != typeof(void))
+                return false;
+            var parameters = methodInfo.GetParameters();
+            return parameters.Length == 4 && parameters[0].ParameterType == typeof(NetworkPeer).MakeByRefType() && parameters[0].IsIn && parameters[1].ParameterType == typeof(NetworkPacketFlag).MakeByRefType() && parameters[1].IsIn && parameters[2].ParameterType == typeof(Span<byte>).MakeByRefType() && parameters[2].IsIn && parameters[3].ParameterType == typeof(Exception).MakeByRefType() && parameters[3].IsIn;
         }
 
         /// <summary>

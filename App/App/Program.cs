@@ -18,12 +18,13 @@ namespace Erinn
 
         public static void Main()
         {
-            var rpcMethods = new RpcMethods(_RpcService_App.RPC_METHOD_COUNT);
+            var rpcMethods = new RpcMethods(0);
             var onConnected = new NetworkOnConnectedEvent(0);
             var onDisconnected = new NetworkOnDisconnectedEvent(0);
             var onErrored = new NetworkOnErroredEvent(0);
             var onReceived = new NetworkOnReceivedEvent(0);
             onReceived.Add(&TestData);
+            onErrored.Add(OnErrored);
             _RpcService_App._Initialize(rpcMethods);
             onConnected.Add(&OnConnected);
             rpcMethods.AddCommand(0, TestProgram.Test4);
@@ -125,11 +126,14 @@ namespace Erinn
             }
         }
 
-        private static void TestData(in NetworkPeer peer, in NetworkPacketFlag flags, in Span<byte> buffer)
+        [OnErrored]
+        private static void OnErrored(in NetworkPeer peer, in NetworkPacketFlag flags, in Span<byte> buffer, in Exception e)
         {
-            Console.WriteLine(Encoding.UTF8.GetString(buffer));
         }
 
+        private static void TestData(in NetworkPeer peer, in NetworkPacketFlag flags, in Span<byte> buffer) => Console.WriteLine(Encoding.UTF8.GetString(buffer));
+
+        [OnConnected]
         private static void OnConnected(in NetworkPeer peer)
         {
             if (peer.Host == _host1)

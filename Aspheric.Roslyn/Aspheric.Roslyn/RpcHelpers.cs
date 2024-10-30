@@ -13,6 +13,9 @@ namespace Erinn.Roslyn
     internal static unsafe class RpcHelpers
     {
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static bool HasAnyFlags(MethodFlag state) => (state & (MethodFlag.Rpc | MethodFlag.RpcManual | MethodFlag.OnConnected | MethodFlag.OnDisconnected | MethodFlag.OnErrored | MethodFlag.OnReceived)) != MethodFlag.NotFound;
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static bool IsPartialType(INamedTypeSymbol typeSymbol)
         {
             for (var i = 0; i < typeSymbol.DeclaringSyntaxReferences.Length; ++i)
@@ -31,6 +34,15 @@ namespace Erinn.Roslyn
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static bool IsValidRpcManualParameters(ImmutableArray<IParameterSymbol> parameters) => parameters.Length == 3 && parameters[0].RefKind == RefKind.In && parameters[0].Type.ToDisplayString() == "Erinn.NetworkPeer" && parameters[0].Type.ContainingAssembly.Name == "Aspheric" && parameters[1].RefKind == RefKind.In && parameters[1].Type.ToDisplayString() == "Erinn.NetworkPacketFlag" && parameters[1].Type.ContainingAssembly.Name == "Aspheric" && parameters[2].RefKind == RefKind.In && parameters[2].Type.ToDisplayString() == "Erinn.DataStream" && parameters[2].Type.ContainingAssembly.Name == "Aspheric";
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static bool IsValidConnectedDisconnected(ImmutableArray<IParameterSymbol> parameters) => parameters.Length == 1 && parameters[0].RefKind == RefKind.In && parameters[0].Type.ToDisplayString() == "Erinn.NetworkPeer";
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static bool IsValidErrored(ImmutableArray<IParameterSymbol> parameters) => parameters.Length == 4 && parameters[0].RefKind == RefKind.In && parameters[0].Type.ToDisplayString() == "Erinn.NetworkPeer" && parameters[1].RefKind == RefKind.In && parameters[1].Type.ToDisplayString() == "Erinn.NetworkPacketFlag" && parameters[2].RefKind == RefKind.In && parameters[2].Type.ToDisplayString() == "System.Span<byte>" && parameters[3].RefKind == RefKind.In && parameters[3].Type.ToDisplayString() == "System.Exception";
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static bool IsValidReceived(ImmutableArray<IParameterSymbol> parameters) => parameters.Length == 3 && parameters[0].RefKind == RefKind.In && parameters[0].Type.ToDisplayString() == "Erinn.NetworkPeer" && parameters[1].RefKind == RefKind.In && parameters[1].Type.ToDisplayString() == "Erinn.NetworkPacketFlag" && parameters[2].RefKind == RefKind.In && parameters[2].Type.ToDisplayString() == "System.Span<byte>";
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static uint Hash32(StringBuilder sb)
