@@ -73,7 +73,7 @@ namespace Erinn
                 {
                     if (_isConnected1)
                     {
-                        client.Send(_peer1, NetworkPacketFlag.Reliable, TestProgram.Test2_Rpc_735264182, $"1. this is roslyn test. {i++}");
+                        client.Send(_peer1, NetworkPacketFlag.Reliable, &TestProgram.Test, $"1. this is roslyn test. {i++}");
                         Thread.Sleep(100);
                     }
 

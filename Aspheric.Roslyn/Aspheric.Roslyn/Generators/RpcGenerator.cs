@@ -83,23 +83,6 @@ namespace Erinn.Roslyn
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private static ServiceTarget GetRpcServiceTarget(INamedTypeSymbol symbol)
-        {
-            var attributes = symbol.GetAttributes();
-            for (var i = 0; i < attributes.Length; ++i)
-            {
-                var attribute = attributes[i];
-                if (attribute.AttributeClass.ContainingAssembly.Name == "Aspheric")
-                {
-                    if (attribute.AttributeClass?.ToDisplayString() == "Erinn.RpcServiceAttribute" && attribute.ConstructorArguments.Length == 1)
-                        return (ServiceTarget)int.Parse(attribute.ConstructorArguments[0].Value.ToString());
-                }
-            }
-
-            return ServiceTarget.None;
-        }
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private static void GenerateCode(SourceProductionContext context, Compilation compilation, ImmutableArray<(MethodDeclarationSyntax, MethodData)> methodDeclarations)
         {
             if (!((CSharpCompilation)compilation).Options.AllowUnsafe)
@@ -162,15 +145,22 @@ namespace Erinn.Roslyn
                     continue;
                 }
 
+                var target = RpcHelpers.GetRpcServiceTarget(methodSymbol.ContainingType);
+                if (RpcHelpers.HasAnyFlags(target) && !RpcHelpers.IsPartialType(methodSymbol.ContainingType))
+                {
+                    ReportDiagnostic(context, "RPC008", "Type Not Partial", "The method must be defined in a partial type.", "Erinn.Roslyn", DiagnosticSeverity.Error, methodSymbol.ContainingType.Locations[0]);
+                    continue;
+                }
+
+                if (!RpcHelpers.IsValidAccessibility(target))
+                {
+                    ReportDiagnostic(context, "RPC018", "Invalid Accessibility", "At most one accessibility modifier is allowed.", "Erinn.Roslyn", DiagnosticSeverity.Error, methodSymbol.ContainingType.Locations[0]);
+                    continue;
+                }
+
                 ImmutableArray<IParameterSymbol> parameters;
                 if (((int)data.Flags & (int)MethodFlag.Rpc) != 0)
                 {
-                    if (!RpcHelpers.IsPartialType(methodSymbol.ContainingType))
-                    {
-                        ReportDiagnostic(context, "RPC008", "Type Not Partial", "The method must be defined in a partial type.", "Erinn.Roslyn", DiagnosticSeverity.Error, methodDeclarationSyntax.GetLocation());
-                        continue;
-                    }
-
                     parameters = methodSymbol.Parameters;
                     if (parameters.Length < 2 || parameters[0].Type.ToDisplayString() != "Erinn.NetworkPeer" || parameters[0].Type.ContainingAssembly.Name != "Aspheric" || parameters[1].Type.ToDisplayString() != "Erinn.NetworkPacketFlag" || parameters[1].Type.ContainingAssembly.Name != "Aspheric")
                     {
@@ -242,10 +232,9 @@ namespace Erinn.Roslyn
                 var fullName = methodSymbol.ContainingType.ToDisplayString();
                 var methodName = methodSymbol.Name;
                 var hasNamespace = HasNamespace(methodSymbol);
-                var target = GetRpcServiceTarget(methodSymbol.ContainingType);
                 if (!classCodeMap.TryGetValue(fullName, out var value))
                 {
-                    value = ([false, false], new StringBuilder(), HasNamespace: hasNamespace, [], [], [], [], [], [], [], target);
+                    value = (new bool[2], new StringBuilder(), HasNamespace: hasNamespace, [], [], [], [], [], [], [], target);
                     classCodeMap[fullName] = value;
                 }
 
@@ -275,16 +264,6 @@ namespace Erinn.Roslyn
                     }
                 }
 
-                if (((int)data.Flags & (int)MethodFlag.Rpc) != 0 || ((int)data.Flags & (int)MethodFlag.RpcManual) != 0)
-                    serviceData.RpcMethodCount++;
-                else if (((int)data.Flags & (int)MethodFlag.OnConnected) != 0)
-                    serviceData.OnConnectedCount++;
-                else if (((int)data.Flags & (int)MethodFlag.OnDisconnected) != 0)
-                    serviceData.OnDisconnectedCount++;
-                else if (((int)data.Flags & (int)MethodFlag.OnErrored) != 0)
-                    serviceData.OnErroredCount++;
-                else if (((int)data.Flags & (int)MethodFlag.OnReceived) != 0)
-                    serviceData.OnReceivedCount++;
                 if (((int)data.Flags & (int)MethodFlag.Rpc) != 0)
                 {
                     var partialMethodCode = GenerateRpcMethodCode(sb, hasNamespace, fullName, methodName, data.DeclaredAccessibility, parameters, value.Addresses, out var command);
@@ -332,6 +311,17 @@ namespace Erinn.Roslyn
                 {
                     value.OnReceived.Add(methodName);
                 }
+
+                if (((int)data.Flags & (int)MethodFlag.Rpc) != 0 || ((int)data.Flags & (int)MethodFlag.RpcManual) != 0)
+                    serviceData.RpcMethodCount++;
+                else if (((int)data.Flags & (int)MethodFlag.OnConnected) != 0)
+                    serviceData.OnConnectedCount++;
+                else if (((int)data.Flags & (int)MethodFlag.OnDisconnected) != 0)
+                    serviceData.OnDisconnectedCount++;
+                else if (((int)data.Flags & (int)MethodFlag.OnErrored) != 0)
+                    serviceData.OnErroredCount++;
+                else if (((int)data.Flags & (int)MethodFlag.OnReceived) != 0)
+                    serviceData.OnReceivedCount++;
             }
 
             foreach (var (fullName, (hasAny, codeBuilder, hasNamespace, commands, addresses, manualCommands, onConnected, onDisconnected, onErrored, onReceived, serviceTarget)) in classCodeMap)
@@ -339,31 +329,23 @@ namespace Erinn.Roslyn
                 if (!hasAny[0])
                     continue;
                 var target = serviceTarget;
-                if (onConnected.Count == 0)
-                    target &= ~ ServiceTarget.OnConnected;
-                if (onDisconnected.Count == 0)
-                    target &= ~ ServiceTarget.OnDisconnected;
-                if (onErrored.Count == 0)
-                    target &= ~ ServiceTarget.OnErrored;
-                if (onReceived.Count == 0)
-                    target &= ~ ServiceTarget.OnReceived;
-                var hasService = ((int)target & (int)ServiceTarget.Rpc) != 0 || ((int)target & (int)ServiceTarget.RpcManual) != 0 || (((int)target & (int)ServiceTarget.OnConnected) != 0 && onConnected.Count > 0) || (((int)target & (int)ServiceTarget.OnDisconnected) != 0 && onDisconnected.Count > 0) || (((int)target & (int)ServiceTarget.OnErrored) != 0 && onErrored.Count > 0) || (((int)target & (int)ServiceTarget.OnReceived) != 0 && onReceived.Count > 0);
+                var hasService = ((int)target & (int)ServiceTarget.Rpc) != 0 || ((int)target & (int)ServiceTarget.RpcManual) != 0 || ((int)target & (int)ServiceTarget.OnConnected) != 0 || ((int)target & (int)ServiceTarget.OnDisconnected) != 0 || ((int)target & (int)ServiceTarget.OnErrored) != 0 || ((int)target & (int)ServiceTarget.OnReceived) != 0;
                 if (hasService)
                 {
                     codeBuilder.AppendLine();
                     if (((int)target & (int)ServiceTarget.Rpc) != 0 && ((int)target & (int)ServiceTarget.RpcManual) != 0)
-                        codeBuilder.Append(GenerateRpcInitializeMethod(sb, hasNamespace, commands, addresses, manualCommands));
+                        codeBuilder.Append(GenerateRpcInitializeMethod(sb, hasNamespace, target, commands, addresses, manualCommands));
                     else if (((int)target & (int)ServiceTarget.Rpc) != 0)
-                        codeBuilder.Append(GenerateRpcInitializeMethod(sb, hasNamespace, commands, addresses));
+                        codeBuilder.Append(GenerateRpcInitializeMethod(sb, hasNamespace, target, commands, addresses));
                     else if (((int)target & (int)ServiceTarget.RpcManual) != 0)
-                        codeBuilder.Append(GenerateRpcInitializeMethod(sb, hasNamespace, manualCommands));
+                        codeBuilder.Append(GenerateRpcInitializeMethod(sb, hasNamespace, target, manualCommands));
                     var tab = hasNamespace ? "\t" : "";
                     if (((int)target & (int)ServiceTarget.Rpc) != 0 || ((int)target & (int)ServiceTarget.RpcManual) != 0)
                         codeBuilder.AppendLine($"{tab}\t}}");
                     if (((int)target & (int)ServiceTarget.OnConnected) != 0 || ((int)target & (int)ServiceTarget.OnDisconnected) != 0 || ((int)target & (int)ServiceTarget.OnErrored) != 0 || ((int)target & (int)ServiceTarget.OnReceived) != 0)
                     {
                         codeBuilder.AppendLine();
-                        codeBuilder.Append(GenerateRpcInitializeMethod(sb, hasNamespace, target, onConnected, onDisconnected, onErrored, onReceived));
+                        codeBuilder.Append(GenerateEventsInitializeMethod(sb, hasNamespace, target, onConnected, onDisconnected, onErrored, onReceived));
                     }
                 }
 
@@ -457,34 +439,9 @@ namespace Erinn.Roslyn
                     break;
             }
 
-            if (accessibility != null)
-            {
-                sb.AppendLine($"{tab}\t[_Rpc({command})]");
-                if (parameters.Length == 2)
-                {
-                    sb.Append($"{tab}\t{accessibility} static delegate* managed<in NetworkPeer, in NetworkPacketFlag, void> {methodName}_Rpc_{command} => &{methodName};");
-                }
-                else
-                {
-                    sb.Append($"{tab}\t{accessibility} static delegate* managed<in NetworkPeer, in NetworkPacketFlag, ");
-                    for (var i = 2; i < parameters.Length; ++i)
-                    {
-                        var parameterSymbol = parameters[i];
-                        var parameterType = parameterSymbol.Type;
-                        if (i != parameters.Length - 1)
-                            sb.Append($"in {parameterType}, ");
-                        else
-                            sb.Append($"in {parameterType}, void> {methodName}_Rpc_{command} => &{methodName};");
-                    }
-                }
-
-                sb.AppendLine();
-                sb.AppendLine();
-            }
-
             sb.AppendLine($"{tab}\t[_Rpc({command})]");
             sb.AppendLine($"{tab}\t[MethodImpl(MethodImplOptions.AggressiveInlining)]");
-            sb.AppendLine($"{tab}\tprivate static void _Rpc_{command}(in NetworkPeer peer, in NetworkPacketFlag flags, in DataStream stream)");
+            sb.AppendLine($"{tab}\t{accessibility} static void _Rpc_{command}(in NetworkPeer peer, in NetworkPacketFlag flags, in DataStream stream)");
             sb.AppendLine($"{tab}\t{{");
             if (parameters.Length == 2)
             {
@@ -515,13 +472,30 @@ namespace Erinn.Roslyn
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private static string GenerateRpcInitializeMethod(StringBuilder sb, bool hasNamespace, List<uint> commands, List<string> addresses, List<(string, uint)> manualCommands)
+        private static string GetAccessibility(ServiceTarget target)
+        {
+            if (((int)target & (int)ServiceTarget.Private) != 0)
+                return "private";
+            if (((int)target & (int)ServiceTarget.ProtectedAndInternal) != 0)
+                return "private protected";
+            if (((int)target & (int)ServiceTarget.Protected) != 0)
+                return "protected";
+            if (((int)target & (int)ServiceTarget.Internal) != 0)
+                return "internal";
+            if (((int)target & (int)ServiceTarget.ProtectedOrInternal) != 0)
+                return "protected internal";
+            return "public";
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private static string GenerateRpcInitializeMethod(StringBuilder sb, bool hasNamespace, ServiceTarget target, List<uint> commands, List<string> addresses, List<(string, uint)> manualCommands)
         {
             var tab = hasNamespace ? "\t" : "";
+            var accessibility = GetAccessibility(target);
             sb.Clear();
             sb.AppendLine($"{tab}\t[_RpcInitialize({commands.Count + manualCommands.Count})]");
             sb.AppendLine($"{tab}\t[MethodImpl(MethodImplOptions.AggressiveInlining)]");
-            sb.AppendLine($"{tab}\tpublic static void _Rpc_Initialize(in RpcMethods rpcMethods)");
+            sb.AppendLine($"{tab}\t{accessibility} static void _Rpc_Initialize(in RpcMethods rpcMethods)");
             sb.AppendLine($"{tab}\t{{");
             sb.AppendLine($"{tab}\t\tdelegate* managed<in NetworkPeer, in NetworkPacketFlag, in DataStream, void> address;");
             for (var i = 0; i < commands.Count; ++i)
@@ -544,7 +518,7 @@ namespace Erinn.Roslyn
             sb.AppendLine();
             sb.AppendLine($"{tab}\t[_RpcDeinitialize({commands.Count + manualCommands.Count})]");
             sb.AppendLine($"{tab}\t[MethodImpl(MethodImplOptions.AggressiveInlining)]");
-            sb.AppendLine($"{tab}\tpublic static void _Rpc_Deinitialize(in RpcMethods rpcMethods)");
+            sb.AppendLine($"{tab}\t{accessibility} static void _Rpc_Deinitialize(in RpcMethods rpcMethods)");
             sb.AppendLine($"{tab}\t{{");
             for (var i = 0; i < commands.Count; ++i)
             {
@@ -564,13 +538,14 @@ namespace Erinn.Roslyn
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private static string GenerateRpcInitializeMethod(StringBuilder sb, bool hasNamespace, List<uint> commands, List<string> addresses)
+        private static string GenerateRpcInitializeMethod(StringBuilder sb, bool hasNamespace, ServiceTarget target, List<uint> commands, List<string> addresses)
         {
             var tab = hasNamespace ? "\t" : "";
+            var accessibility = GetAccessibility(target);
             sb.Clear();
             sb.AppendLine($"{tab}\t[_RpcInitialize({commands.Count})]");
             sb.AppendLine($"{tab}\t[MethodImpl(MethodImplOptions.AggressiveInlining)]");
-            sb.AppendLine($"{tab}\tpublic static void _Rpc_Initialize(in RpcMethods rpcMethods)");
+            sb.AppendLine($"{tab}\t{accessibility} static void _Rpc_Initialize(in RpcMethods rpcMethods)");
             sb.AppendLine($"{tab}\t{{");
             sb.AppendLine($"{tab}\t\tdelegate* managed<in NetworkPeer, in NetworkPacketFlag, in DataStream, void> address;");
             for (var i = 0; i < commands.Count; ++i)
@@ -586,7 +561,7 @@ namespace Erinn.Roslyn
             sb.AppendLine();
             sb.AppendLine($"{tab}\t[_RpcDeinitialize({commands.Count})]");
             sb.AppendLine($"{tab}\t[MethodImpl(MethodImplOptions.AggressiveInlining)]");
-            sb.AppendLine($"{tab}\tpublic static void _Rpc_Deinitialize(in RpcMethods rpcMethods)");
+            sb.AppendLine($"{tab}\t{accessibility} static void _Rpc_Deinitialize(in RpcMethods rpcMethods)");
             sb.AppendLine($"{tab}\t{{");
             for (var i = 0; i < commands.Count; ++i)
             {
@@ -600,13 +575,14 @@ namespace Erinn.Roslyn
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private static string GenerateRpcInitializeMethod(StringBuilder sb, bool hasNamespace, List<(string, uint)> manualCommands)
+        private static string GenerateRpcInitializeMethod(StringBuilder sb, bool hasNamespace, ServiceTarget target, List<(string, uint)> manualCommands)
         {
             var tab = hasNamespace ? "\t" : "";
+            var accessibility = GetAccessibility(target);
             sb.Clear();
             sb.AppendLine($"{tab}\t[_RpcInitialize({manualCommands.Count})]");
             sb.AppendLine($"{tab}\t[MethodImpl(MethodImplOptions.AggressiveInlining)]");
-            sb.AppendLine($"{tab}\tpublic static void _Rpc_Initialize(in RpcMethods rpcMethods)");
+            sb.AppendLine($"{tab}\t{accessibility} static void _Rpc_Initialize(in RpcMethods rpcMethods)");
             sb.AppendLine($"{tab}\t{{");
             sb.AppendLine($"{tab}\t\tdelegate* managed<in NetworkPeer, in NetworkPacketFlag, in DataStream, void> address;");
             for (var i = 0; i < manualCommands.Count; ++i)
@@ -620,7 +596,7 @@ namespace Erinn.Roslyn
             sb.AppendLine();
             sb.AppendLine($"{tab}\t[_RpcDeinitialize({manualCommands.Count})]");
             sb.AppendLine($"{tab}\t[MethodImpl(MethodImplOptions.AggressiveInlining)]");
-            sb.AppendLine($"{tab}\tpublic static void _Rpc_Deinitialize(in RpcMethods rpcMethods)");
+            sb.AppendLine($"{tab}\t{accessibility} static void _Rpc_Deinitialize(in RpcMethods rpcMethods)");
             sb.AppendLine($"{tab}\t{{");
             for (var i = 0; i < manualCommands.Count; ++i)
             {
@@ -632,17 +608,18 @@ namespace Erinn.Roslyn
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private static string GenerateRpcInitializeMethod(StringBuilder sb, bool hasNamespace, ServiceTarget target, List<string> onConnected, List<string> onDisconnected, List<string> onErrored, List<string> onReceived)
+        private static string GenerateEventsInitializeMethod(StringBuilder sb, bool hasNamespace, ServiceTarget target, List<string> onConnected, List<string> onDisconnected, List<string> onErrored, List<string> onReceived)
         {
-            var tab = hasNamespace ? "\t" : "";
             sb.Clear();
+            var tab = hasNamespace ? "\t" : "";
+            var accessibility = GetAccessibility(target);
             var flag = false;
             if (((int)target & (int)ServiceTarget.OnConnected) != 0)
             {
                 flag = true;
                 sb.AppendLine($"{tab}\t[_RpcInitialize({onConnected.Count})]");
                 sb.AppendLine($"{tab}\t[MethodImpl(MethodImplOptions.AggressiveInlining)]");
-                sb.AppendLine($"{tab}\tpublic static void _Rpc_Initialize(in NetworkOnConnectedEvent onConnected)");
+                sb.AppendLine($"{tab}\t{accessibility} static void _Rpc_Initialize(in NetworkOnConnectedEvent onConnected)");
                 sb.AppendLine($"{tab}\t{{");
                 for (var i = 0; i < onConnected.Count; ++i)
                 {
@@ -654,7 +631,7 @@ namespace Erinn.Roslyn
                 sb.AppendLine();
                 sb.AppendLine($"{tab}\t[_RpcDeinitialize({onConnected.Count})]");
                 sb.AppendLine($"{tab}\t[MethodImpl(MethodImplOptions.AggressiveInlining)]");
-                sb.AppendLine($"{tab}\tpublic static void _Rpc_Deinitialize(in NetworkOnConnectedEvent onConnected)");
+                sb.AppendLine($"{tab}\t{accessibility} static void _Rpc_Deinitialize(in NetworkOnConnectedEvent onConnected)");
                 sb.AppendLine($"{tab}\t{{");
                 for (var i = 0; i < onConnected.Count; ++i)
                 {
@@ -672,7 +649,7 @@ namespace Erinn.Roslyn
                 flag = true;
                 sb.AppendLine($"{tab}\t[_RpcInitialize({onDisconnected.Count})]");
                 sb.AppendLine($"{tab}\t[MethodImpl(MethodImplOptions.AggressiveInlining)]");
-                sb.AppendLine($"{tab}\tpublic static void _Rpc_Initialize(in NetworkOnDisconnectedEvent onDisconnected)");
+                sb.AppendLine($"{tab}\t{accessibility} static void _Rpc_Initialize(in NetworkOnDisconnectedEvent onDisconnected)");
                 sb.AppendLine($"{tab}\t{{");
                 for (var i = 0; i < onDisconnected.Count; ++i)
                 {
@@ -684,7 +661,7 @@ namespace Erinn.Roslyn
                 sb.AppendLine();
                 sb.AppendLine($"{tab}\t[_RpcDeinitialize({onDisconnected.Count})]");
                 sb.AppendLine($"{tab}\t[MethodImpl(MethodImplOptions.AggressiveInlining)]");
-                sb.AppendLine($"{tab}\tpublic static void _Rpc_Deinitialize(in NetworkOnDisconnectedEvent onDisconnected)");
+                sb.AppendLine($"{tab}\t{accessibility} static void _Rpc_Deinitialize(in NetworkOnDisconnectedEvent onDisconnected)");
                 sb.AppendLine($"{tab}\t{{");
                 for (var i = 0; i < onDisconnected.Count; ++i)
                 {
@@ -702,7 +679,7 @@ namespace Erinn.Roslyn
                 flag = true;
                 sb.AppendLine($"{tab}\t[_RpcInitialize({onErrored.Count})]");
                 sb.AppendLine($"{tab}\t[MethodImpl(MethodImplOptions.AggressiveInlining)]");
-                sb.AppendLine($"{tab}\tpublic static void _Rpc_Initialize(in NetworkOnErroredEvent onErrored)");
+                sb.AppendLine($"{tab}\t{accessibility} static void _Rpc_Initialize(in NetworkOnErroredEvent onErrored)");
                 sb.AppendLine($"{tab}\t{{");
                 for (var i = 0; i < onErrored.Count; ++i)
                 {
@@ -714,7 +691,7 @@ namespace Erinn.Roslyn
                 sb.AppendLine();
                 sb.AppendLine($"{tab}\t[_RpcDeinitialize({onErrored.Count})]");
                 sb.AppendLine($"{tab}\t[MethodImpl(MethodImplOptions.AggressiveInlining)]");
-                sb.AppendLine($"{tab}\tpublic static void _Rpc_Deinitialize(in NetworkOnErroredEvent onErrored)");
+                sb.AppendLine($"{tab}\t{accessibility} static void _Rpc_Deinitialize(in NetworkOnErroredEvent onErrored)");
                 sb.AppendLine($"{tab}\t{{");
                 for (var i = 0; i < onErrored.Count; ++i)
                 {
@@ -731,7 +708,7 @@ namespace Erinn.Roslyn
                     sb.AppendLine();
                 sb.AppendLine($"{tab}\t[_RpcInitialize({onReceived.Count})]");
                 sb.AppendLine($"{tab}\t[MethodImpl(MethodImplOptions.AggressiveInlining)]");
-                sb.AppendLine($"{tab}\tpublic static void _Rpc_Initialize(in NetworkOnReceivedEvent onReceived)");
+                sb.AppendLine($"{tab}\t{accessibility} static void _Rpc_Initialize(in NetworkOnReceivedEvent onReceived)");
                 sb.AppendLine($"{tab}\t{{");
                 for (var i = 0; i < onReceived.Count; ++i)
                 {
@@ -743,7 +720,7 @@ namespace Erinn.Roslyn
                 sb.AppendLine();
                 sb.AppendLine($"{tab}\t[_RpcDeinitialize({onReceived.Count})]");
                 sb.AppendLine($"{tab}\t[MethodImpl(MethodImplOptions.AggressiveInlining)]");
-                sb.AppendLine($"{tab}\tpublic static void _Rpc_Deinitialize(in NetworkOnReceivedEvent onReceived)");
+                sb.AppendLine($"{tab}\t{accessibility} static void _Rpc_Deinitialize(in NetworkOnReceivedEvent onReceived)");
                 sb.AppendLine($"{tab}\t{{");
                 for (var i = 0; i < onReceived.Count; ++i)
                 {
@@ -791,7 +768,7 @@ namespace Erinn.Roslyn
                 for (var i = 0; i < rpcClasses.Count; ++i)
                 {
                     var (fullname, hasNamespace, target) = rpcClasses[i];
-                    if (((int)target & (int)ServiceTarget.Rpc) == 0 && ((int)target & (int)ServiceTarget.RpcManual) == 0)
+                    if (RpcHelpers.CannotBeAccessed(target) || (((int)target & (int)ServiceTarget.Rpc) == 0 && ((int)target & (int)ServiceTarget.RpcManual) == 0))
                         continue;
                     if (hasNamespace)
                         sb.AppendLine($"\t\t\t{fullname}._Rpc_Initialize(rpcMethods);");
@@ -807,7 +784,7 @@ namespace Erinn.Roslyn
                 for (var i = 0; i < rpcClasses.Count; ++i)
                 {
                     var (fullname, hasNamespace, target) = rpcClasses[i];
-                    if (((int)target & (int)ServiceTarget.Rpc) == 0 && ((int)target & (int)ServiceTarget.RpcManual) == 0)
+                    if (RpcHelpers.CannotBeAccessed(target) || (((int)target & (int)ServiceTarget.Rpc) == 0 && ((int)target & (int)ServiceTarget.RpcManual) == 0))
                         continue;
                     if (hasNamespace)
                         sb.AppendLine($"\t\t\t{fullname}._Rpc_Deinitialize(rpcMethods);");
@@ -829,7 +806,7 @@ namespace Erinn.Roslyn
                 for (var i = 0; i < rpcClasses.Count; ++i)
                 {
                     var (fullname, hasNamespace, target) = rpcClasses[i];
-                    if (((int)target & (int)ServiceTarget.OnConnected) == 0)
+                    if (RpcHelpers.CannotBeAccessed(target) || ((int)target & (int)ServiceTarget.OnConnected) == 0)
                         continue;
                     if (hasNamespace)
                         sb.AppendLine($"\t\t\t{fullname}._Rpc_Initialize(onConnected);");
@@ -845,7 +822,7 @@ namespace Erinn.Roslyn
                 for (var i = 0; i < rpcClasses.Count; ++i)
                 {
                     var (fullname, hasNamespace, target) = rpcClasses[i];
-                    if (((int)target & (int)ServiceTarget.OnConnected) == 0)
+                    if (RpcHelpers.CannotBeAccessed(target) || ((int)target & (int)ServiceTarget.OnConnected) == 0)
                         continue;
                     if (hasNamespace)
                         sb.AppendLine($"\t\t\t{fullname}._Rpc_Deinitialize(onConnected);");
@@ -867,7 +844,7 @@ namespace Erinn.Roslyn
                 for (var i = 0; i < rpcClasses.Count; ++i)
                 {
                     var (fullname, hasNamespace, target) = rpcClasses[i];
-                    if (((int)target & (int)ServiceTarget.OnDisconnected) == 0)
+                    if (RpcHelpers.CannotBeAccessed(target) || ((int)target & (int)ServiceTarget.OnDisconnected) == 0)
                         continue;
                     if (hasNamespace)
                         sb.AppendLine($"\t\t\t{fullname}._Rpc_Initialize(onDisconnected);");
@@ -883,7 +860,7 @@ namespace Erinn.Roslyn
                 for (var i = 0; i < rpcClasses.Count; ++i)
                 {
                     var (fullname, hasNamespace, target) = rpcClasses[i];
-                    if (((int)target & (int)ServiceTarget.OnDisconnected) == 0)
+                    if (RpcHelpers.CannotBeAccessed(target) || ((int)target & (int)ServiceTarget.OnDisconnected) == 0)
                         continue;
                     if (hasNamespace)
                         sb.AppendLine($"\t\t\t{fullname}._Rpc_Deinitialize(onDisconnected);");
@@ -904,7 +881,7 @@ namespace Erinn.Roslyn
                 for (var i = 0; i < rpcClasses.Count; ++i)
                 {
                     var (fullname, hasNamespace, target) = rpcClasses[i];
-                    if (((int)target & (int)ServiceTarget.OnErrored) == 0)
+                    if (RpcHelpers.CannotBeAccessed(target) || ((int)target & (int)ServiceTarget.OnErrored) == 0)
                         continue;
                     if (hasNamespace)
                         sb.AppendLine($"\t\t\t{fullname}._Rpc_Initialize(onErrored);");
@@ -920,7 +897,7 @@ namespace Erinn.Roslyn
                 for (var i = 0; i < rpcClasses.Count; ++i)
                 {
                     var (fullname, hasNamespace, target) = rpcClasses[i];
-                    if (((int)target & (int)ServiceTarget.OnErrored) == 0)
+                    if (RpcHelpers.CannotBeAccessed(target) || ((int)target & (int)ServiceTarget.OnErrored) == 0)
                         continue;
                     if (hasNamespace)
                         sb.AppendLine($"\t\t\t{fullname}._Rpc_Deinitialize(onErrored);");
@@ -940,7 +917,7 @@ namespace Erinn.Roslyn
                 for (var i = 0; i < rpcClasses.Count; ++i)
                 {
                     var (fullname, hasNamespace, target) = rpcClasses[i];
-                    if (((int)target & (int)ServiceTarget.OnReceived) == 0)
+                    if (RpcHelpers.CannotBeAccessed(target) || ((int)target & (int)ServiceTarget.OnReceived) == 0)
                         continue;
                     if (hasNamespace)
                         sb.AppendLine($"\t\t\t{fullname}._Rpc_Initialize(onReceived);");
@@ -956,7 +933,7 @@ namespace Erinn.Roslyn
                 for (var i = 0; i < rpcClasses.Count; ++i)
                 {
                     var (fullname, hasNamespace, target) = rpcClasses[i];
-                    if (((int)target & (int)ServiceTarget.OnReceived) == 0)
+                    if (RpcHelpers.CannotBeAccessed(target) || ((int)target & (int)ServiceTarget.OnReceived) == 0)
                         continue;
                     if (hasNamespace)
                         sb.AppendLine($"\t\t\t{fullname}._Rpc_Deinitialize(onReceived);");

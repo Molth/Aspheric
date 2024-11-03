@@ -61,7 +61,7 @@ namespace Erinn
                 if (j++ % 2 == 0)
                 {
                     if (_isConnected)
-                        client.Send(_peer, NetworkPacketFlag.Unsequenced, TestProgram.Test2_Rpc_735264182, $"1. this is roslyn test. {i++}");
+                        client.Send(_peer, NetworkPacketFlag.Unsequenced, &TestProgram.Test, $"1. this is roslyn test. {i++}");
                     if (_isConnected2)
                     {
                         stream.Write(1);

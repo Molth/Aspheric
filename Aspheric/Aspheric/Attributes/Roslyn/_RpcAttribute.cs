@@ -7,7 +7,7 @@ namespace Erinn
     /// <summary>
     ///     Rpc attribute
     /// </summary>
-    [AttributeUsage(AttributeTargets.Method | AttributeTargets.Property)]
+    [AttributeUsage(AttributeTargets.Method)]
     public sealed class _RpcAttribute : Attribute
     {
         /// <summary>

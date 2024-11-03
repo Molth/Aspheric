@@ -34,8 +34,9 @@ namespace Erinn.Roslyn
         private static readonly DiagnosticDescriptor RPC015 = new("RPC015", "Invalid Method Parameters", "The one parameter must be 'Erinn.NetworkPeer'", "Erinn.Roslyn", DiagnosticSeverity.Error, true);
         private static readonly DiagnosticDescriptor RPC016 = new("RPC016", "Invalid Method Parameters", "The four parameters must be 'Erinn.NetworkPeer', 'Erinn.NetworkPacketFlag', 'System.Span<byte>', and 'System.Exception'", "Erinn.Roslyn", DiagnosticSeverity.Error, true);
         private static readonly DiagnosticDescriptor RPC017 = new("RPC017", "Invalid Method Parameters", "The three parameters must be 'Erinn.NetworkPeer', 'Erinn.NetworkPacketFlag', and 'System.Span<byte>'", "Erinn.Roslyn", DiagnosticSeverity.Error, true);
+        private static readonly DiagnosticDescriptor RPC018 = new("RPC018", "Invalid Accessibility", "At most one accessibility modifier is allowed", "Erinn.Roslyn", DiagnosticSeverity.Error, true);
 
-        public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => [RPC003, RPC004, RPC005, RPC006, RPC007, RPC008, RPC009, RPC010, RPC011, RPC012, RPC013, RPC014, RPC015, RPC016, RPC017];
+        public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => [RPC003, RPC004, RPC005, RPC006, RPC007, RPC008, RPC009, RPC010, RPC011, RPC012, RPC013, RPC014, RPC015, RPC016, RPC017, RPC018];
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public override void Initialize(AnalysisContext context)
@@ -45,8 +46,7 @@ namespace Erinn.Roslyn
             var methods = new ConcurrentDictionary<uint, IMethodSymbol>();
             var stringBuilders = new ConcurrentQueue<StringBuilder>();
             context.RegisterCompilationStartAction(analysisContext => analysisContext.RegisterSymbolAction(symbolAnalysisContext => AnalyzeMethod(symbolAnalysisContext, methods, stringBuilders), SymbolKind.Method));
-            context.RegisterCompilationStartAction(analysisContext => analysisContext.RegisterSymbolAction(AnalyzeProperty, SymbolKind.Property));
-            context.RegisterCompilationStartAction(analysisContext => analysisContext.RegisterSymbolAction(AnalyzeClass, SymbolKind.NamedType));
+            context.RegisterCompilationStartAction(analysisContext => analysisContext.RegisterSymbolAction(AnalyzeType, SymbolKind.NamedType));
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -170,30 +170,18 @@ namespace Erinn.Roslyn
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private static void AnalyzeProperty(SymbolAnalysisContext context)
-        {
-            var propertySymbol = (IPropertySymbol)context.Symbol;
-            var attributes = propertySymbol.GetAttributes();
-            for (var i = 0; i < attributes.Length; ++i)
-            {
-                var attribute = attributes[i];
-                if (attribute.AttributeClass.ContainingAssembly.Name == "Aspheric")
-                {
-                    if (attribute.AttributeClass?.ToDisplayString() == "Erinn._RpcAttribute")
-                    {
-                        ReportDiagnostic(context, propertySymbol, RPC014);
-                        return;
-                    }
-                }
-            }
-        }
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private static void AnalyzeClass(SymbolAnalysisContext context)
+        private static void AnalyzeType(SymbolAnalysisContext context)
         {
             var namedTypeSymbol = (INamedTypeSymbol)context.Symbol;
-            if (namedTypeSymbol.TypeKind != TypeKind.Class)
+            if (namedTypeSymbol.TypeKind is not (TypeKind.Class or TypeKind.Struct))
                 return;
+            var target = RpcHelpers.GetRpcServiceTarget(namedTypeSymbol);
+            if (!RpcHelpers.IsValidAccessibility(target))
+            {
+                ReportDiagnostic(context, namedTypeSymbol, RPC018);
+                return;
+            }
+
             var attributes = namedTypeSymbol.GetAttributes();
             for (var i = 0; i < attributes.Length; ++i)
             {

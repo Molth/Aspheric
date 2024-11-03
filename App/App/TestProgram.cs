@@ -2,11 +2,11 @@
 
 namespace Erinn
 {
-    [RpcService(RpcServiceTarget.All)]
+    [RpcService(RpcServiceTarget.All | RpcServiceTarget.Internal)]
     public sealed partial class TestProgram
     {
         [Rpc(RpcAccessibility.Public)]
-        private static void Test(in NetworkPeer peer, in NetworkPacketFlag flags, in string message)
+        public static void Test(in NetworkPeer peer, in NetworkPacketFlag flags, in string message)
         {
             Console.WriteLine(message);
         }
@@ -17,7 +17,7 @@ namespace Erinn
             Console.WriteLine(message);
         }
 
-        [RpcManual(0)]
+        [RpcManual(1)]
         public static void Test4(in NetworkPeer peer, in NetworkPacketFlag flags, in DataStream stream)
         {
             var message = stream.Read<string>();

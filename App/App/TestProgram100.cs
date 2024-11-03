@@ -1,6 +1,6 @@
 ﻿namespace Erinn
 {
-    [RpcService(RpcServiceTarget.OnErrored)]
+    [RpcService]
     public sealed partial class TestProgram100
     {
         [OnConnected]

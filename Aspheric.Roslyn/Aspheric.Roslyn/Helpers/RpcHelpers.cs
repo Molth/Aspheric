@@ -8,12 +8,52 @@ using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 
+#pragma warning disable CS8602
+#pragma warning disable CS8604
+
 namespace Erinn.Roslyn
 {
     internal static unsafe class RpcHelpers
     {
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static ServiceTarget GetRpcServiceTarget(INamedTypeSymbol symbol)
+        {
+            var attributes = symbol.GetAttributes();
+            for (var i = 0; i < attributes.Length; ++i)
+            {
+                var attribute = attributes[i];
+                if (attribute.AttributeClass?.ContainingAssembly.Name == "Aspheric")
+                {
+                    if (attribute.AttributeClass.ToDisplayString() == "Erinn.RpcServiceAttribute" && attribute.ConstructorArguments.Length == 1)
+                        return (ServiceTarget)int.Parse(attribute.ConstructorArguments[0].Value.ToString());
+                }
+            }
+
+            return ServiceTarget.None;
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static bool CannotBeAccessed(ServiceTarget target) => (target & (ServiceTarget.Private | ServiceTarget.ProtectedAndInternal | ServiceTarget.Protected)) != 0;
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static bool IsValidAccessibility(Accessibility declaredAccessibility) => declaredAccessibility switch
+        {
+            Accessibility.NotApplicable or Accessibility.Private or Accessibility.ProtectedAndInternal or Accessibility.Protected or Accessibility.Internal or Accessibility.ProtectedOrInternal or Accessibility.Public => true,
+            _ => false
+        };
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static bool IsValidAccessibility(ServiceTarget target)
+        {
+            var bits = (int)target & (int)(ServiceTarget.Private | ServiceTarget.ProtectedAndInternal | ServiceTarget.Protected | ServiceTarget.Internal | ServiceTarget.ProtectedOrInternal | ServiceTarget.Public);
+            return (bits & (bits - 1)) == 0;
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static bool HasAnyFlags(MethodFlag state) => (state & (MethodFlag.Rpc | MethodFlag.RpcManual | MethodFlag.OnConnected | MethodFlag.OnDisconnected | MethodFlag.OnErrored | MethodFlag.OnReceived)) != MethodFlag.NotFound;
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static bool HasAnyFlags(ServiceTarget target) => (target & (ServiceTarget.Rpc | ServiceTarget.RpcManual | ServiceTarget.OnConnected | ServiceTarget.OnDisconnected | ServiceTarget.OnErrored | ServiceTarget.OnReceived)) != ServiceTarget.None;
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static bool IsPartialType(INamedTypeSymbol typeSymbol)

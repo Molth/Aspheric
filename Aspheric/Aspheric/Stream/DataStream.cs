@@ -265,7 +265,7 @@ namespace Erinn
         {
             var handle = _handle;
             var obj = default(T);
-            handle->BytesRead += MemoryPackSerializer.Deserialize(handle->Buffer.AsReadOnlySpan(handle->BytesRead), ref obj);
+            handle->BytesRead += MemoryPackSerializer.Deserialize(handle->Buffer.AsReadOnlySpan(handle->BytesRead), ref obj, MemoryPackSerializerOptions.Utf8);
             return obj;
         }
 
@@ -278,7 +278,7 @@ namespace Erinn
         public void Read<T>(ref T obj)
         {
             var handle = _handle;
-            handle->BytesRead += MemoryPackSerializer.Deserialize(handle->Buffer.AsReadOnlySpan(handle->BytesRead), ref obj);
+            handle->BytesRead += MemoryPackSerializer.Deserialize(handle->Buffer.AsReadOnlySpan(handle->BytesRead), ref obj, MemoryPackSerializerOptions.Utf8);
         }
 
         /// <summary>
@@ -304,7 +304,7 @@ namespace Erinn
         /// <param name="obj">object</param>
         /// <typeparam name="T">Type</typeparam>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public void Write<T>(in T obj) => MemoryPackSerializer.Serialize(this, in obj);
+        public void Write<T>(in T obj) => MemoryPackSerializer.Serialize(this, in obj, MemoryPackSerializerOptions.Utf8);
 
         /// <summary>
         ///     Write bytes
