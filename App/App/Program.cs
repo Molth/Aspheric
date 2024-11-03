@@ -37,9 +37,7 @@ namespace Erinn
             _host2 = client2;
             client.Start(0, 100);
             client2.Start(0, 100);
-
             var running = true;
-
             Console.CancelKeyPress += (sender, args) =>
             {
                 running = false;
@@ -52,12 +50,9 @@ namespace Erinn
                 client.Dispose();
                 client2.Dispose();
             };
-
             Thread.Sleep(1000);
-
             client.Connect("127.0.0.1", 7777);
             client2.Connect("127.0.0.1", 7778);
-
             var i = 0;
             var j = -1;
             DataStream stream = stackalloc byte[1416];
